@@ -48,56 +48,21 @@ const FileHistoryScreen: React.FC = () => {
     try {
       const historyData = await filesService.getFileHistory(fileId);
       
-      // Simular datos de historial
-      const mockHistory: FileHistoryItem[] = [
-        {
-          id: '1',
-          version: 5,
-          createdAt: new Date().toISOString(),
-          createdBy: 'Usuario Actual',
-          size: 2048,
-          changes: 'Actualización de contenido principal',
-          isCurrentVersion: true,
-        },
-        {
-          id: '2',
-          version: 4,
-          createdAt: new Date(Date.now() - 86400000).toISOString(),
-          createdBy: 'María García',
-          size: 1950,
-          changes: 'Corrección de errores tipográficos',
-          isCurrentVersion: false,
-        },
-        {
-          id: '3',
-          version: 3,
-          createdAt: new Date(Date.now() - 172800000).toISOString(),
-          createdBy: 'Juan Pérez',
-          size: 1890,
-          changes: 'Agregado nuevo párrafo de introducción',
-          isCurrentVersion: false,
-        },
-        {
-          id: '4',
-          version: 2,
-          createdAt: new Date(Date.now() - 259200000).toISOString(),
-          createdBy: 'Ana López',
-          size: 1750,
-          changes: 'Reestructuración del documento',
-          isCurrentVersion: false,
-        },
-        {
-          id: '5',
-          version: 1,
-          createdAt: new Date(Date.now() - 604800000).toISOString(),
-          createdBy: 'Carlos Ruiz',
-          size: 1200,
-          changes: 'Versión inicial del documento',
-          isCurrentVersion: false,
-        },
-      ];
+      // Mapear los datos reales de la API al formato de la interfaz
+      const mappedHistory: FileHistoryItem[] = historyData.map((item, index) => ({
+        id: item.id.toString(),
+        version: item.version,
+        createdAt: item.created_at,
+        createdBy: `Usuario ${item.created_by}`, // En producción, esto debería ser el nombre real del usuario
+        size: item.content ? item.content.length : 0, // Calcular tamaño basado en contenido
+        changes: item.changes_description || 'Sin descripción de cambios',
+        isCurrentVersion: index === 0 // La primera versión es la más reciente
+      }));
       
-      setHistory(mockHistory);
+      // Ordenar por versión descendente (más reciente primero)
+      const sortedHistory = mappedHistory.sort((a, b) => b.version - a.version);
+      
+      setHistory(sortedHistory);
     } catch (error) {
       console.error('Error loading file history:', error);
       Alert.alert('Error', 'No se pudo cargar el historial del archivo');

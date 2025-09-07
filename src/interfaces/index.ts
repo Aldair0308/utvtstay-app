@@ -29,9 +29,9 @@ export type AuthStackParamList = {
 export type AppStackParamList = {
   Dashboard: undefined;
   Files: undefined;
-  FileDetail: { fileId: number };
-  FileHistory: { fileId: number };
-  FileEdit: { fileId: number };
+  FileDetail: { fileId: string };
+  FileHistory: { fileId: string };
+  FileEdit: { fileId: string };
   Calendar: undefined;
   Profile: undefined;
 };
@@ -45,9 +45,8 @@ export interface ApiResponse<T = any> {
 }
 
 export interface PaginatedResponse<T> {
-  data: T[];
+  files: T[];
   total: number;
   current_page: number;
   per_page: number;
-  last_page: number;
 }

@@ -1,14 +1,16 @@
 export interface File {
-  id: number;
+  id: string;
   name: string;
   content: string;
+  description?: string;
   version: number;
-  status: 'pending' | 'reviewed' | 'approved' | 'rejected';
-  created_at: string;
-  updated_at: string;
-  student_id: number;
-  tutor_observations?: string;
-  file_type: string;
+  status: 'active' | 'inactive' | 'pending' | 'reviewed' | 'approved' | 'rejected';
+  createdAt: string;
+  updatedAt: string;
+  studentId: number;
+  tutorObservations?: string;
+  mimeType: string;
+  fileType: string;
   size: number;
 }
 

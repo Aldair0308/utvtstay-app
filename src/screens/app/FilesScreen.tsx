@@ -63,7 +63,7 @@ const FilesScreen: React.FC = () => {
     if (searchQuery.trim()) {
       filtered = filtered.filter(file =>
         file.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        file.description?.toLowerCase().includes(searchQuery.toLowerCase())
+        (file.description && file.description.toLowerCase().includes(searchQuery.toLowerCase()))
       );
     }
 
@@ -80,6 +80,7 @@ const FilesScreen: React.FC = () => {
   };
 
   const getFileIcon = (mimeType: string) => {
+    if (!mimeType) return '📁';
     if (mimeType.includes('pdf')) return '📄';
     if (mimeType.includes('image')) return '🖼️';
     if (mimeType.includes('video')) return '🎥';
