@@ -16,6 +16,7 @@ import LoadingScreen from '../../components/common/LoadingScreen';
 import CustomAlert from '../../components/common/CustomAlert';
 import useAlert from '../../hooks/useAlert';
 import { ERROR_MESSAGES } from '../../const/errors';
+import { MaterialIcons } from '@expo/vector-icons';
 
 const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -23,17 +24,16 @@ const LoginScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const { alertState, hideAlert, showError } = useAlert();
+  const [passwordVisible, setPasswordVisible] = useState(false);
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
       showError(ERROR_MESSAGES.EMPTY_FIELDS);
-      console.error('Login error:', ERROR_MESSAGES.EMPTY_FIELDS);
       return;
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       showError(ERROR_MESSAGES.INVALID_EMAIL);
-      console.error('Login error:', ERROR_MESSAGES.INVALID_EMAIL);
       return;
     }
     setLoading(true);
@@ -41,11 +41,9 @@ const LoginScreen: React.FC = () => {
       const result = await login(email, password);
       if (!result.success && result.error) {
         showError(result.error);
-        console.error('Login error:', result.error);
       }
     } catch (error) {
       showError(ERROR_MESSAGES.UNEXPECTED_ERROR);
-      console.error('Login error:', ERROR_MESSAGES.UNEXPECTED_ERROR);
     } finally {
       setLoading(false);
     }
@@ -55,12 +53,17 @@ const LoginScreen: React.FC = () => {
     return <LoadingScreen message="Iniciando sesión..." />;
   }
 
+  const TogglePasswordInput = () => {
+    setPasswordVisible(!passwordVisible);
+    return null;
+  }
+
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.scrollContainer}
         keyboardShouldPersistTaps="handled"
       >
@@ -89,7 +92,7 @@ const LoginScreen: React.FC = () => {
               style={styles.input}
               value={email}
               onChangeText={setEmail}
-              placeholder="tu.email@utvt.edu.mx"
+              placeholder="example@example.com"
               placeholderTextColor={theme.colors.textTertiary}
               keyboardType="email-address"
               autoCapitalize="none"
@@ -99,19 +102,31 @@ const LoginScreen: React.FC = () => {
 
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Contraseña</Text>
-            <TextInput
-              style={styles.input}
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Tu contraseña"
-              placeholderTextColor={theme.colors.textTertiary}
-              secureTextEntry
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
+            <View style={styles.passwordInputContainer}>
+              <TextInput
+                style={styles.passwordInput}
+                value={password}
+                onChangeText={setPassword}
+                placeholder="********"
+                placeholderTextColor={theme.colors.textTertiary}
+                secureTextEntry={!passwordVisible}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <TouchableOpacity
+                style={styles.passwordToggle}
+                onPress={TogglePasswordInput}
+              >
+                <MaterialIcons
+                  name={passwordVisible ? 'visibility' : 'visibility-off'}
+                  size={24}
+                  color={theme.colors.textTertiary}
+                />
+              </TouchableOpacity>
+            </View>
           </View>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.loginButton}
             onPress={handleLogin}
             disabled={loading}
@@ -128,7 +143,7 @@ const LoginScreen: React.FC = () => {
           </View>
         </View>
       </ScrollView>
-      
+
       <CustomAlert
         visible={alertState.visible}
         title={alertState.title}
@@ -219,6 +234,25 @@ const styles = StyleSheet.create({
     ...theme.typography.styles.caption,
     textAlign: 'center',
     color: theme.colors.textSecondary,
+  },
+  passwordInputContainer: {
+    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  passwordInput: {
+    ...theme.components.input,
+    flex: 1,
+    paddingRight: 50,
+  },
+  passwordToggle: {
+    position: 'absolute',
+    right: 15,
+    padding: 5,
+  },
+  passwordToggleText: {
+    ...theme.typography.styles.body,
+    color: theme.colors.primary,
   },
 });
 

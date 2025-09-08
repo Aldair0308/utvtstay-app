@@ -11,7 +11,7 @@ export const ERROR_MESSAGES = {
   
   INVALID_CREDENTIALS: 'El email o contraseña son incorrectos. Verifica tus datos.',
   EMPTY_FIELDS: 'Necesitas completar todos los campos para continuar.',
-  INVALID_EMAIL: 'El formato del email no es válido. Ejemplo: usuario@utvt.edu.mx',
+  INVALID_EMAIL: 'El formato del email no es válido. Ejemplo: usuario@gmail.com',
   UNSUPPORTED_ROLE: 'Este rol no está soportado. Por favor, visita el sitio web',
   VALIDATION_ERROR: 'Error de validación',
   FILE_NOT_FOUND: 'Archivo no encontrado',

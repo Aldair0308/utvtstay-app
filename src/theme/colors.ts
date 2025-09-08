@@ -16,7 +16,7 @@ export const colors = {
   info: '#3B82F6',
   
   // Colores de fondo
-  background: '#FFFFFF',
+  background: '#F0F0F0',
   backgroundSecondary: '#F9FAFB',
   backgroundTertiary: '#F3F4F6',
   
