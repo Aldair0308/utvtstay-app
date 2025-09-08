@@ -5,6 +5,7 @@ import {
   CreateEventRequest,
   ApiResponse,
 } from '../interfaces';
+import { ERROR_MESSAGES } from '../const/errors';
 
 export const calendarService = {
   /**
@@ -164,7 +165,7 @@ export const calendarService = {
         return response.data.data;
       }
       
-      throw new Error('Error al marcar el evento como completado');
+      throw new Error(ERROR_MESSAGES.EVENT_COMPLETE_ERROR);
     } catch (error) {
       throw new Error(handleApiError(error));
     }

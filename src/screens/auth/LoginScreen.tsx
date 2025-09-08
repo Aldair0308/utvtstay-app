@@ -5,7 +5,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -14,41 +13,39 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { theme } from '../../theme';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import CustomAlert from '../../components/common/CustomAlert';
+import useAlert from '../../hooks/useAlert';
+import { ERROR_MESSAGES } from '../../const/errors';
 
 const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
+  const { alertState, hideAlert, showError } = useAlert();
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
-      Alert.alert('Error', 'Por favor ingresa tu email y contraseña');
+      showError(ERROR_MESSAGES.EMPTY_FIELDS);
+      console.error('Login error:', ERROR_MESSAGES.EMPTY_FIELDS);
       return;
     }
-
-    // Validar formato de email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      Alert.alert('Error', 'Por favor ingresa un email válido');
+      showError(ERROR_MESSAGES.INVALID_EMAIL);
+      console.error('Login error:', ERROR_MESSAGES.INVALID_EMAIL);
       return;
     }
-
     setLoading(true);
     try {
-      const success = await login(email, password);
-      if (!success) {
-        Alert.alert(
-          'Error de autenticación',
-          'Credenciales incorrectas o no tienes permisos de estudiante'
-        );
+      const result = await login(email, password);
+      if (!result.success && result.error) {
+        showError(result.error);
+        console.error('Login error:', result.error);
       }
     } catch (error) {
-      console.error('Login error:', error);
-      Alert.alert(
-        'Error',
-        'Ocurrió un error al iniciar sesión. Por favor intenta nuevamente.'
-      );
+      showError(ERROR_MESSAGES.UNEXPECTED_ERROR);
+      console.error('Login error:', ERROR_MESSAGES.UNEXPECTED_ERROR);
     } finally {
       setLoading(false);
     }
@@ -69,7 +66,11 @@ const LoginScreen: React.FC = () => {
       >
         <View style={styles.logoContainer}>
           <View style={styles.logoPlaceholder}>
-            <Text style={styles.logoText}>UTVstay</Text>
+            <Image
+              source={require('../../../assets/img/logo_vacio.png')}
+              style={{ width: 120, height: 120, resizeMode: 'contain' }}
+              accessibilityLabel="Logo vacío"
+            />
           </View>
           <Text style={styles.subtitle}>
             Sistema de Gestión de Archivos
@@ -127,6 +128,16 @@ const LoginScreen: React.FC = () => {
           </View>
         </View>
       </ScrollView>
+      
+      <CustomAlert
+        visible={alertState.visible}
+        title={alertState.title}
+        message={alertState.message}
+        type={alertState.type}
+        onClose={hideAlert}
+        primaryButton={alertState.primaryButton}
+        secondaryButton={alertState.secondaryButton}
+      />
     </KeyboardAvoidingView>
   );
 };
@@ -148,7 +159,6 @@ const styles = StyleSheet.create({
   logoPlaceholder: {
     width: 100,
     height: 100,
-    backgroundColor: theme.colors.primary,
     borderRadius: theme.dimensions.borderRadius.xl,
     justifyContent: 'center',
     alignItems: 'center',

@@ -1,5 +1,6 @@
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { ERROR_MESSAGES } from '../const/errors';
 
 // Cambiar por la URL real de tu API
 const API_BASE_URL = "https://estadias-production.up.railway.app/api";
@@ -10,9 +11,12 @@ const apiClient = axios.create({
     "Content-Type": "application/json",
     Accept: "application/json",
   },
-  timeout: 10000, // 10 segundos de timeout
+  timeout: 10000,
 });
 
+const showError = (message: string) => {
+    alert(message);
+  };
 // Interceptor para agregar token de autenticación
 apiClient.interceptors.request.use(
   async (config) => {
@@ -23,6 +27,7 @@ apiClient.interceptors.request.use(
       }
     } catch (error) {
       console.error("Error getting token from storage:", error);
+      showError(ERROR_MESSAGES.UNEXPECTED_ERROR);
     }
     return config;
   },
@@ -31,7 +36,6 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Interceptor para manejar errores de autenticación
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -43,6 +47,7 @@ apiClient.interceptors.response.use(
         // o usar un navigation service
       } catch (storageError) {
         console.error("Error clearing storage:", storageError);
+        showError(ERROR_MESSAGES.UNEXPECTED_ERROR);
       }
     }
     return Promise.reject(error);
@@ -54,36 +59,29 @@ export default apiClient;
 // Función helper para manejar errores de API
 export const handleApiError = (error: any): string => {
   if (error.response) {
-    // El servidor respondió con un código de error
     const { status, data } = error.response;
-
     if (status === 422 && data.errors) {
-      // Errores de validación
       const firstError = Object.values(data.errors)[0] as string[];
-      return firstError[0] || "Error de validación";
+      return firstError[0] || ERROR_MESSAGES.VALIDATION_ERROR;
     }
-
     if (data.message) {
       return data.message;
     }
-
     switch (status) {
       case 401:
-        return "No autorizado. Por favor, inicia sesión nuevamente.";
+        return ERROR_MESSAGES.UNAUTHORIZED;
       case 403:
-        return "No tienes permisos para realizar esta acción.";
+        return ERROR_MESSAGES.FORBIDDEN;
       case 404:
-        return "Recurso no encontrado.";
+        return ERROR_MESSAGES.NOT_FOUND;
       case 500:
-        return "Error interno del servidor. Intenta más tarde.";
+        return ERROR_MESSAGES.INTERNAL_SERVER;
       default:
         return `Error del servidor (${status})`;
     }
   } else if (error.request) {
-    // La petición se hizo pero no hubo respuesta
-    return "Error de conexión. Verifica tu conexión a internet.";
+    return ERROR_MESSAGES.CONNECTION_ERROR;
   } else {
-    // Error en la configuración de la petición
-    return "Error inesperado. Intenta nuevamente.";
+    return ERROR_MESSAGES.UNEXPECTED_ERROR;
   }
-};
+}

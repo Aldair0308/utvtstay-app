@@ -2,9 +2,6 @@ import apiClient, { handleApiError } from './api';
 import { LoginResponse, User, ApiResponse } from '../interfaces';
 
 export const authService = {
-  /**
-   * Iniciar sesión
-   */
   login: async (email: string, password: string): Promise<LoginResponse> => {
     try {
       const response = await apiClient.post<LoginResponse>('/login', {
@@ -17,21 +14,15 @@ export const authService = {
     }
   },
 
-  /**
-   * Cerrar sesión
-   */
+
   logout: async (): Promise<void> => {
     try {
       await apiClient.post('/logout');
     } catch (error) {
-      // Incluso si falla el logout en el servidor, continuamos
       console.error('Error during logout:', error);
     }
   },
 
-  /**
-   * Obtener información del usuario actual
-   */
   getCurrentUser: async (): Promise<User> => {
     try {
       const response = await apiClient.get<ApiResponse<User>>('/user');

@@ -5,7 +5,6 @@ import {
   FlatList,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   RefreshControl,
   TextInput,
 } from 'react-native';
@@ -15,6 +14,8 @@ import { AppStackParamList, File } from '../../interfaces';
 import { filesService } from '../../services/files';
 import { theme } from '../../theme';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import CustomAlert from '../../components/common/CustomAlert';
+import useAlert from '../../hooks/useAlert';
 
 type FilesNavigationProp = StackNavigationProp<AppStackParamList, 'Files'>;
 
@@ -26,15 +27,19 @@ const FilesScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredFiles, setFilteredFiles] = useState<File[]>([]);
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const { alertState, hideAlert, showError } = useAlert();
 
   const loadFiles = async () => {
     try {
       const response = await filesService.getFiles();
       setFiles(response.files);
       setFilteredFiles(response.files);
+      if (refreshing) {
+        setRefreshing(false);
+      }
     } catch (error) {
       console.error('Error loading files:', error);
-      Alert.alert('Error', 'No se pudieron cargar los archivos');
+      showError('No se pudieron cargar los archivos');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -211,6 +216,16 @@ const FilesScreen: React.FC = () => {
           </Text>
         </View>
       )}
+
+      <CustomAlert
+        visible={alertState.visible}
+        title={alertState.title}
+        message={alertState.message}
+        type={alertState.type}
+        onClose={hideAlert}
+        primaryButton={alertState.primaryButton}
+        secondaryButton={alertState.secondaryButton}
+      />
     </View>
   );
 };

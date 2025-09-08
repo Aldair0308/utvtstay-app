@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User } from '../interfaces';
+import { ERROR_MESSAGES } from '../const/errors';
 
 // Claves para AsyncStorage
 const STORAGE_KEYS = {
@@ -211,7 +212,7 @@ export const storageService = {
       await AsyncStorage.clear();
     } catch (error) {
       console.error('Error clearing all storage:', error);
-      throw new Error('Error al limpiar el almacenamiento');
+      throw new Error(ERROR_MESSAGES.STORAGE_CLEAR_ERROR);
     }
   },
 };

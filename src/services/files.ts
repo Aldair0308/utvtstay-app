@@ -7,6 +7,7 @@ import {
   ApiResponse,
   PaginatedResponse,
 } from '../interfaces';
+import { ERROR_MESSAGES } from '../const/errors';
 
 export const filesService = {
   /**
@@ -90,7 +91,7 @@ export const filesService = {
         };
       }
       
-      throw new Error('Archivo no encontrado');
+      throw new Error(ERROR_MESSAGES.FILE_NOT_FOUND);
     } catch (error) {
       console.error('Error en getFileById:', error);
       throw new Error(handleApiError(error));
@@ -127,7 +128,7 @@ export const filesService = {
         };
       }
       
-      throw new Error('Error al actualizar el archivo');
+      throw new Error(ERROR_MESSAGES.FILE_UPDATE_ERROR);
     } catch (error) {
       console.error('Error en updateFileContent:', error);
       throw new Error(handleApiError(error));
@@ -162,7 +163,7 @@ export const filesService = {
         };
       }
       
-      throw new Error('Error al actualizar el archivo');
+      throw new Error(ERROR_MESSAGES.FILE_UPDATE_ERROR);
     } catch (error) {
       console.error('Error en updateFile:', error);
       throw new Error(handleApiError(error));
@@ -228,7 +229,7 @@ export const filesService = {
         };
       }
       
-      throw new Error('Error al restaurar la versión del archivo');
+      throw new Error(ERROR_MESSAGES.FILE_RESTORE_ERROR);
     } catch (error) {
       console.error('Error en restoreFileVersion:', error);
       throw new Error(handleApiError(error));
@@ -267,7 +268,7 @@ export const filesService = {
         };
       }
       
-      throw new Error('Error al crear el archivo');
+      throw new Error(ERROR_MESSAGES.FILE_CREATE_ERROR);
     } catch (error) {
       console.error('Error en createFile:', error);
       throw new Error(handleApiError(error));
@@ -282,7 +283,7 @@ export const filesService = {
       const response = await apiClient.delete<ApiResponse>(`/files/${fileId}`);
       
       if (!response.data.success) {
-        throw new Error(response.data.message || 'Error al eliminar el archivo');
+        throw new Error(response.data.message || ERROR_MESSAGES.FILE_DELETE_ERROR);
       }
     } catch (error) {
       console.error('Error en deleteFile:', error);

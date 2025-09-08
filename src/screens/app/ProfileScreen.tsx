@@ -5,13 +5,14 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   TextInput,
   Modal,
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { authService } from '../../services/auth';
 import { theme } from '../../theme';
+import CustomAlert from '../../components/common/CustomAlert';
+import useAlert from '../../hooks/useAlert';
 
 const ProfileScreen: React.FC = () => {
   const { user, logout, updateUser } = useAuth();
@@ -20,47 +21,46 @@ const ProfileScreen: React.FC = () => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const { alertState, hideAlert, showError, showSuccess, showConfirm } = useAlert();
 
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
-      Alert.alert('Error', 'Por favor completa todos los campos');
+      showError('Por favor completa todos los campos');
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      Alert.alert('Error', 'Las contraseñas no coinciden');
+      showError('Las contraseñas no coinciden');
       return;
     }
 
     if (newPassword.length < 6) {
-      Alert.alert('Error', 'La nueva contraseña debe tener al menos 6 caracteres');
+      showError('La nueva contraseña debe tener al menos 6 caracteres');
       return;
     }
 
     setLoading(true);
     try {
-      await authService.changePassword(currentPassword, newPassword);
-      Alert.alert('Éxito', 'Contraseña cambiada correctamente');
+      await authService.changePassword(currentPassword, newPassword, confirmPassword);
+      showSuccess('Tu contraseña ha sido actualizada correctamente');
       setShowChangePassword(false);
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (error) {
       console.error('Error changing password:', error);
-      Alert.alert('Error', 'No se pudo cambiar la contraseña');
+      showError('No se pudo cambiar la contraseña. Verifica que tu contraseña actual sea correcta.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      'Cerrar Sesión',
+    showConfirm(
       '¿Estás seguro que deseas cerrar sesión?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Cerrar Sesión', onPress: logout, style: 'destructive' },
-      ]
+      logout,
+      undefined,
+      'Cerrar Sesión'
     );
   };
 
@@ -247,6 +247,16 @@ const ProfileScreen: React.FC = () => {
           </ScrollView>
         </View>
       </Modal>
+      
+      <CustomAlert
+        visible={alertState.visible}
+        title={alertState.title}
+        message={alertState.message}
+        type={alertState.type}
+        onClose={hideAlert}
+        primaryButton={alertState.primaryButton}
+        secondaryButton={alertState.secondaryButton}
+      />
     </ScrollView>
   );
 };
