@@ -21,8 +21,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, loading } = useAuth();
   const { alertState, hideAlert, showError } = useAlert();
   const [passwordVisible, setPasswordVisible] = useState(false);
 
@@ -36,16 +35,15 @@ const LoginScreen: React.FC = () => {
       showError(ERROR_MESSAGES.INVALID_EMAIL);
       return;
     }
-    setLoading(true);
     try {
       const result = await login(email, password);
       if (!result.success && result.error) {
-        showError(result.error);
-      }
+        showError(ERROR_MESSAGES.UNSUPPORTED_ROLE);
+        console.log(ERROR_MESSAGES.UNSUPPORTED_ROLE);
+        return;
+    }
     } catch (error) {
       showError(ERROR_MESSAGES.UNEXPECTED_ERROR);
-    } finally {
-      setLoading(false);
     }
   };
 

@@ -59,7 +59,7 @@ const useAlert = () => {
     showAlert({
       type: 'error',
       title: title || 'Error',
-      message: getUserFriendlyErrorMessage(message),
+      message: message,
     });
   };
 
@@ -124,41 +124,5 @@ const useAlert = () => {
     showInfo,
     showConfirm,
   };
-};
-
-const getUserFriendlyErrorMessage = (message: string): string => {
-  const errorMappings: { [key: string]: string } = {
-    'Network Error': ERROR_MESSAGES.NETWORK_ERROR,
-    'Request timeout': ERROR_MESSAGES.REQUEST_TIMEOUT,
-    'No autorizado. Por favor, inicia sesión nuevamente.': ERROR_MESSAGES.UNAUTHORIZED,
-    'No tienes permisos para realizar esta acción.': ERROR_MESSAGES.FORBIDDEN,
-    'Recurso no encontrado.': ERROR_MESSAGES.NOT_FOUND,
-    'Error interno del servidor. Intenta más tarde.': ERROR_MESSAGES.INTERNAL_SERVER,
-    'Error de conexión. Verifica tu conexión a internet.': ERROR_MESSAGES.CONNECTION_ERROR,
-    'Error inesperado. Intenta nuevamente.': ERROR_MESSAGES.UNEXPECTED_ERROR,
-    'Credenciales incorrectas': ERROR_MESSAGES.INVALID_CREDENTIALS,
-    'Email o contraseña incorrectos': ERROR_MESSAGES.INVALID_CREDENTIALS,
-    'Por favor ingresa tu email y contraseña': ERROR_MESSAGES.EMPTY_FIELDS,
-    'Por favor ingresa un email válido': ERROR_MESSAGES.INVALID_EMAIL,
-    'Este rol no está soportado. Por favor, visita el sitio web': ERROR_MESSAGES.UNSUPPORTED_ROLE,
-    'Las credenciales proporcionadas son incorrectas.': ERROR_MESSAGES.INVALID_CREDENTIALS,
-  };
-
-  if (errorMappings[message]) {
-    return errorMappings[message];
-  }
-
-  for (const [key, value] of Object.entries(errorMappings)) {
-    if (message.toLowerCase().includes(key.toLowerCase())) {
-      return value;
-    }
-  }
-
-  if (message.toLowerCase().includes('error')) {
-    return ERROR_MESSAGES.UNEXPECTED_ERROR;
-  }
-
-  return message;
-};
-
+}; 
 export default useAlert;
