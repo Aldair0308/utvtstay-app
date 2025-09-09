@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -8,15 +8,18 @@ import {
   ScrollView,
   Modal,
   TextInput,
-} from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { AppStackParamList, CalendarEvent } from '../../interfaces';
-import { calendarService } from '../../services/calendar';
-import { theme } from '../../theme';
-import LoadingScreen from '../../components/common/LoadingScreen';
+} from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { StackNavigationProp } from "@react-navigation/stack";
+import { AppStackParamList, CalendarEvent } from "../../interfaces";
+import { calendarService } from "../../services/calendar";
+import { theme } from "../../theme";
+import LoadingScreen from "../../components/common/LoadingScreen";
 
-type CalendarNavigationProp = StackNavigationProp<AppStackParamList, 'Calendar'>;
+type CalendarNavigationProp = StackNavigationProp<
+  AppStackParamList,
+  "Calendar"
+>;
 
 interface CalendarDay {
   date: Date;
@@ -27,22 +30,32 @@ interface CalendarDay {
 
 const CalendarScreen: React.FC = () => {
   const navigation = useNavigation<CalendarNavigationProp>();
-  
+
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [calendarDays, setCalendarDays] = useState<CalendarDay[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showEventModal, setShowEventModal] = useState(false);
-  const [newEventTitle, setNewEventTitle] = useState('');
-  const [newEventDescription, setNewEventDescription] = useState('');
+  const [newEventTitle, setNewEventTitle] = useState("");
+  const [newEventDescription, setNewEventDescription] = useState("");
 
   const monthNames = [
-    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    "Enero",
+    "Febrero",
+    "Marzo",
+    "Abril",
+    "Mayo",
+    "Junio",
+    "Julio",
+    "Agosto",
+    "Septiembre",
+    "Octubre",
+    "Noviembre",
+    "Diciembre",
   ];
 
-  const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+  const dayNames = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
   useEffect(() => {
     loadCalendarData();
@@ -50,16 +63,18 @@ const CalendarScreen: React.FC = () => {
 
   const loadCalendarData = async () => {
     try {
-      const eventsData = await calendarService.getEvents(
-        new Date(currentDate.getFullYear(), currentDate.getMonth(), 1),
-        new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
-      );
-      
-      setEvents(eventsData);
-      generateCalendarDays(eventsData);
+      setLoading(true);
+      const response = await calendarService.getEvents({
+        month: currentDate.getMonth() + 1,
+        year: currentDate.getFullYear(),
+      });
+      setEvents(response.data.events);
+      generateCalendarDays(response.data.events);
     } catch (error) {
-      console.error('Error loading calendar data:', error);
-      Alert.alert('Error', 'No se pudo cargar el calendario');
+      console.error("Error loading calendar data:", error);
+      // En caso de error, mostrar eventos vacíos en lugar de fallar
+      setEvents([]);
+      generateCalendarDays([]);
     } finally {
       setLoading(false);
     }
@@ -72,38 +87,38 @@ const CalendarScreen: React.FC = () => {
     const lastDay = new Date(year, month + 1, 0);
     const startDate = new Date(firstDay);
     const today = new Date();
-    
+
     // Ajustar al primer día de la semana (domingo)
     startDate.setDate(startDate.getDate() - startDate.getDay());
-    
+
     const days: CalendarDay[] = [];
     const endDate = new Date(lastDay);
     endDate.setDate(endDate.getDate() + (6 - endDate.getDay()));
-    
+
     const currentDateIter = new Date(startDate);
-    
+
     while (currentDateIter <= endDate) {
-      const dayEvents = eventsData.filter(event => {
-        const eventDate = new Date(event.date);
+      const dayEvents = eventsData.filter((event) => {
+        const eventDate = new Date(event.start_date);
         return eventDate.toDateString() === currentDateIter.toDateString();
       });
-      
+
       days.push({
         date: new Date(currentDateIter),
         isCurrentMonth: currentDateIter.getMonth() === month,
         isToday: currentDateIter.toDateString() === today.toDateString(),
         events: dayEvents,
       });
-      
+
       currentDateIter.setDate(currentDateIter.getDate() + 1);
     }
-    
+
     setCalendarDays(days);
   };
 
-  const navigateMonth = (direction: 'prev' | 'next') => {
+  const navigateMonth = (direction: "prev" | "next") => {
     const newDate = new Date(currentDate);
-    if (direction === 'prev') {
+    if (direction === "prev") {
       newDate.setMonth(newDate.getMonth() - 1);
     } else {
       newDate.setMonth(newDate.getMonth() + 1);
@@ -119,76 +134,97 @@ const CalendarScreen: React.FC = () => {
     } else {
       // Opción para agregar evento
       Alert.alert(
-        'Día seleccionado',
-        `${day.date.toLocaleDateString('es-ES')}\n\n¿Deseas agregar un evento?`,
+        "Día seleccionado",
+        `${day.date.toLocaleDateString("es-ES")}\n\n¿Deseas agregar un evento?`,
         [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Agregar Evento', onPress: () => openEventModal(day.date) },
+          { text: "Cancelar", style: "cancel" },
+          { text: "Agregar Evento", onPress: () => openEventModal(day.date) },
         ]
       );
     }
   };
 
   const showDayEvents = (day: CalendarDay) => {
-    const eventsList = day.events.map(event => `• ${event.title}`).join('\n');
+    const eventsList = day.events.map((event) => `• ${event.title}`).join("\n");
     Alert.alert(
-      `Eventos - ${day.date.toLocaleDateString('es-ES')}`,
+      `Eventos - ${day.date.toLocaleDateString("es-ES")}`,
       eventsList,
       [
-        { text: 'Cerrar', style: 'cancel' },
-        { text: 'Agregar Evento', onPress: () => openEventModal(day.date) },
+        { text: "Cerrar", style: "cancel" },
+        { text: "Agregar Evento", onPress: () => openEventModal(day.date) },
       ]
     );
   };
 
   const openEventModal = (date: Date) => {
     setSelectedDate(date);
-    setNewEventTitle('');
-    setNewEventDescription('');
+    setNewEventTitle("");
+    setNewEventDescription("");
     setShowEventModal(true);
   };
 
   const handleCreateEvent = async () => {
     if (!newEventTitle.trim() || !selectedDate) {
-      Alert.alert('Error', 'El título del evento es requerido');
+      Alert.alert("Error", "El título del evento es requerido");
       return;
     }
 
     try {
-      const newEvent: Omit<CalendarEvent, 'id'> = {
+      const newEvent: Omit<CalendarEvent, "id"> = {
         title: newEventTitle.trim(),
         description: newEventDescription.trim(),
         date: selectedDate.toISOString(),
-        type: 'personal',
+        type: "personal",
         color: theme.colors.primary,
       };
 
       await calendarService.createEvent(newEvent);
       setShowEventModal(false);
       loadCalendarData(); // Recargar calendario
-      Alert.alert('Éxito', 'Evento creado correctamente');
+      Alert.alert("Éxito", "Evento creado correctamente");
     } catch (error) {
-      console.error('Error creating event:', error);
-      Alert.alert('Error', 'No se pudo crear el evento');
+      console.error("Error creating event:", error);
+      Alert.alert("Error", "No se pudo crear el evento");
     }
   };
 
-  const getEventColor = (type: string): string => {
-    switch (type) {
-      case 'academic':
-        return theme.colors.fileStates.shared;
-      case 'personal':
-        return theme.colors.primary;
-      case 'deadline':
-        return theme.colors.error;
+  const getEventColor = (event: CalendarEvent): string => {
+    // Si el evento tiene color personalizado, usarlo
+    if (event.color) {
+      return event.color;
+    }
+
+    // Colores por defecto según el tipo
+    switch (event.type) {
+      case "deadline":
+        return "#EF4444"; // Rojo para fechas límite
+      case "meeting":
+        return "#3B82F6"; // Azul para reuniones
+      case "reminder":
+        return "#F59E0B"; // Amarillo para recordatorios
+      case "personal":
+        return "#10B981"; // Verde para eventos personales
       default:
         return theme.colors.secondary;
     }
   };
 
+  const getPriorityIcon = (priority: string): string => {
+    switch (priority) {
+      case "high":
+        return "🔴";
+      case "medium":
+        return "🟡";
+      case "low":
+        return "🟢";
+      default:
+        return "";
+    }
+  };
+
   const renderCalendarDay = (day: CalendarDay, index: number) => {
     const hasEvents = day.events.length > 0;
-    
+
     return (
       <TouchableOpacity
         key={index}
@@ -199,14 +235,16 @@ const CalendarScreen: React.FC = () => {
         ]}
         onPress={() => handleDayPress(day)}
       >
-        <Text style={[
-          styles.dayNumber,
-          !day.isCurrentMonth && styles.dayNumberInactive,
-          day.isToday && styles.dayNumberToday,
-        ]}>
+        <Text
+          style={[
+            styles.dayNumber,
+            !day.isCurrentMonth && styles.dayNumberInactive,
+            day.isToday && styles.dayNumberToday,
+          ]}
+        >
           {day.date.getDate()}
         </Text>
-        
+
         {hasEvents && (
           <View style={styles.eventsContainer}>
             {day.events.slice(0, 3).map((event, eventIndex) => (
@@ -214,7 +252,7 @@ const CalendarScreen: React.FC = () => {
                 key={eventIndex}
                 style={[
                   styles.eventDot,
-                  { backgroundColor: getEventColor(event.type) }
+                  { backgroundColor: getEventColor(event) },
                 ]}
               />
             ))}
@@ -235,20 +273,20 @@ const CalendarScreen: React.FC = () => {
     <View style={styles.container}>
       {/* Calendar Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.navButton}
-          onPress={() => navigateMonth('prev')}
+          onPress={() => navigateMonth("prev")}
         >
           <Text style={styles.navButtonText}>‹</Text>
         </TouchableOpacity>
-        
+
         <Text style={styles.monthTitle}>
           {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
         </Text>
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={styles.navButton}
-          onPress={() => navigateMonth('next')}
+          onPress={() => navigateMonth("next")}
         >
           <Text style={styles.navButtonText}>›</Text>
         </TouchableOpacity>
@@ -264,38 +302,68 @@ const CalendarScreen: React.FC = () => {
       </View>
 
       {/* Calendar Grid */}
-      <ScrollView style={styles.calendarContainer}>
-        <View style={styles.calendarGrid}>
-          {calendarDays.map((day, index) => renderCalendarDay(day, index))}
-        </View>
-        
-        {/* Upcoming Events */}
-        <View style={styles.upcomingSection}>
-          <Text style={styles.sectionTitle}>Próximos Eventos</Text>
-          {events.filter(event => new Date(event.date) >= new Date()).slice(0, 5).map((event, index) => (
-            <View key={index} style={styles.upcomingEvent}>
-              <View style={[
-                styles.eventColorIndicator,
-                { backgroundColor: getEventColor(event.type) }
-              ]} />
-              <View style={styles.eventInfo}>
-                <Text style={styles.eventTitle}>{event.title}</Text>
-                <Text style={styles.eventDate}>
-                  {new Date(event.date).toLocaleDateString('es-ES', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                  })}
-                </Text>
-                {event.description && (
-                  <Text style={styles.eventDescription}>{event.description}</Text>
-                )}
+      <View style={styles.calendarContainer}>
+        <ScrollView style={styles.calendarScrollView}>
+          <View style={styles.calendarGrid}>
+            {calendarDays.map((day, index) => renderCalendarDay(day, index))}
+          </View>
+        </ScrollView>
+      </View>
+
+      {/* Upcoming Events */}
+      <View style={styles.upcomingSection}>
+        <Text style={styles.sectionTitle}>Próximos Eventos</Text>
+        <ScrollView
+          style={styles.upcomingScrollView}
+          showsVerticalScrollIndicator={false}
+        >
+          {events
+            .filter((event) => new Date(event.start_date) >= new Date())
+            .slice(0, 3)
+            .map((event, index) => (
+              <View key={index} style={styles.upcomingEvent}>
+                <View
+                  style={[
+                    styles.eventColorIndicator,
+                    { backgroundColor: getEventColor(event) },
+                  ]}
+                />
+                <View style={styles.eventInfo}>
+                  <View style={styles.eventHeader}>
+                    <Text style={styles.eventTitle} numberOfLines={1}>
+                      {event.title}
+                    </Text>
+                    <Text style={styles.priorityIcon}>
+                      {getPriorityIcon(event.priority)}
+                    </Text>
+                  </View>
+                  <Text style={styles.eventDate} numberOfLines={1}>
+                    {new Date(event.start_date).toLocaleDateString("es-ES", {
+                      month: "short",
+                      day: "numeric",
+                    })}
+                    {event.start_time && ` - ${event.start_time}`}
+                  </Text>
+                  <Text style={styles.eventType} numberOfLines={1}>
+                    {event.type === "deadline"
+                      ? "Fecha límite"
+                      : event.type === "meeting"
+                      ? "Reunión"
+                      : event.type === "reminder"
+                      ? "Recordatorio"
+                      : event.type === "personal"
+                      ? "Personal"
+                      : event.type}
+                  </Text>
+                </View>
               </View>
-            </View>
-          ))}
-        </View>
-      </ScrollView>
+            ))}
+          {events.filter((event) => new Date(event.start_date) >= new Date())
+            .length === 0 && (
+            <Text style={styles.noEventsText}>No hay próximos eventos</Text>
+          )}
+        </ScrollView>
+      </View>
 
       {/* Add Event Modal */}
       <Modal
@@ -314,17 +382,17 @@ const CalendarScreen: React.FC = () => {
               <Text style={styles.modalSaveButton}>Guardar</Text>
             </TouchableOpacity>
           </View>
-          
+
           <ScrollView style={styles.modalContent}>
             <Text style={styles.modalDate}>
-              {selectedDate?.toLocaleDateString('es-ES', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
+              {selectedDate?.toLocaleDateString("es-ES", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
               })}
             </Text>
-            
+
             <View style={styles.inputContainer}>
               <Text style={styles.inputLabel}>Título del Evento</Text>
               <TextInput
@@ -335,7 +403,7 @@ const CalendarScreen: React.FC = () => {
                 placeholderTextColor={theme.colors.textTertiary}
               />
             </View>
-            
+
             <View style={styles.inputContainer}>
               <Text style={styles.inputLabel}>Descripción (Opcional)</Text>
               <TextInput
@@ -362,9 +430,9 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: theme.spacing.screenPadding,
     paddingVertical: theme.spacing.md,
     backgroundColor: theme.colors.backgroundSecondary,
@@ -383,33 +451,37 @@ const styles = StyleSheet.create({
     ...theme.typography.styles.h3,
   },
   dayNamesContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     backgroundColor: theme.colors.backgroundSecondary,
     paddingVertical: theme.spacing.sm,
   },
   dayNameContainer: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
   },
   dayName: {
     ...theme.typography.styles.bodySmall,
     color: theme.colors.textSecondary,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   calendarContainer: {
+    height: 350,
+    marginBottom: theme.spacing.md,
+  },
+  calendarScrollView: {
     flex: 1,
   },
   calendarGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     paddingHorizontal: theme.spacing.xs,
   },
   dayContainer: {
-    width: '14.28%',
+    width: "14.28%",
     aspectRatio: 1,
     padding: theme.spacing.xs,
-    alignItems: 'center',
-    justifyContent: 'flex-start',
+    alignItems: "center",
+    justifyContent: "flex-start",
     borderWidth: theme.dimensions.borderWidth.thin,
     borderColor: theme.colors.border,
   },
@@ -417,25 +489,25 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.backgroundTertiary,
   },
   dayContainerToday: {
-    backgroundColor: theme.colors.primary + '20',
+    backgroundColor: theme.colors.primary + "20",
     borderColor: theme.colors.primary,
   },
   dayNumber: {
     ...theme.typography.styles.body,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   dayNumberInactive: {
     color: theme.colors.textTertiary,
   },
   dayNumberToday: {
     color: theme.colors.primary,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   eventsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     marginTop: theme.spacing.xs,
-    alignItems: 'center',
+    alignItems: "center",
   },
   eventDot: {
     width: 6,
@@ -450,35 +522,70 @@ const styles = StyleSheet.create({
     fontSize: 8,
   },
   upcomingSection: {
+    flex: 1,
     padding: theme.spacing.screenPadding,
+    backgroundColor: theme.colors.surface,
+  },
+  upcomingScrollView: {
+    maxHeight: 200,
+  },
+  noEventsText: {
+    ...theme.typography.styles.body,
+    color: theme.colors.textSecondary,
+    textAlign: "center",
+    marginTop: theme.spacing.md,
+    fontStyle: "italic",
   },
   sectionTitle: {
     ...theme.typography.styles.h4,
     marginBottom: theme.spacing.md,
   },
   upcomingEvent: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: theme.spacing.md,
-    ...theme.components.card,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    paddingVertical: theme.spacing.sm,
+    borderBottomWidth: theme.dimensions.borderWidth.thin,
+    borderBottomColor: theme.colors.border,
   },
   eventColorIndicator: {
     width: 4,
-    height: '100%',
+    height: "100%",
     borderRadius: 2,
     marginRight: theme.spacing.md,
   },
   eventInfo: {
     flex: 1,
   },
+  eventHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: theme.spacing.xs,
+  },
   eventTitle: {
     ...theme.typography.styles.body,
-    fontWeight: '600',
-    marginBottom: theme.spacing.xs,
+    fontWeight: "600",
+    flex: 1,
+  },
+  priorityIcon: {
+    fontSize: 16,
+    marginLeft: theme.spacing.xs,
   },
   eventDate: {
     ...theme.typography.styles.bodySmall,
     color: theme.colors.textSecondary,
+    marginBottom: theme.spacing.xs,
+  },
+  eventType: {
+    ...theme.typography.styles.bodySmall,
+    color: theme.colors.primary,
+    fontWeight: "500",
+    marginBottom: theme.spacing.xs,
+  },
+  eventTutor: {
+    ...theme.typography.styles.bodySmall,
+    color: theme.colors.textSecondary,
+    fontStyle: "italic",
     marginBottom: theme.spacing.xs,
   },
   eventDescription: {
@@ -490,9 +597,9 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: theme.spacing.screenPadding,
     paddingVertical: theme.spacing.md,
     borderBottomWidth: theme.dimensions.borderWidth.thin,
@@ -508,7 +615,7 @@ const styles = StyleSheet.create({
   modalSaveButton: {
     ...theme.typography.styles.body,
     color: theme.colors.primary,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   modalContent: {
     flex: 1,
@@ -518,7 +625,7 @@ const styles = StyleSheet.create({
     ...theme.typography.styles.h4,
     color: theme.colors.primary,
     marginBottom: theme.spacing.lg,
-    textAlign: 'center',
+    textAlign: "center",
   },
   inputContainer: {
     marginBottom: theme.spacing.md,

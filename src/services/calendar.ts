@@ -3,6 +3,7 @@ import {
   CalendarEvent,
   CalendarEventsResponse,
   CreateEventRequest,
+  EventsQueryParams,
   ApiResponse,
 } from '../interfaces';
 import { ERROR_MESSAGES } from '../const/errors';
@@ -11,17 +12,14 @@ export const calendarService = {
   /**
    * Obtener eventos del calendario
    */
-  getEvents: async (
-    startDate?: string,
-    endDate?: string,
-    type?: string
-  ): Promise<CalendarEvent[]> => {
+  getEvents: async (queryParams?: EventsQueryParams): Promise<CalendarEvent[]> => {
     try {
       const params: any = {};
       
-      if (startDate) params.start_date = startDate;
-      if (endDate) params.end_date = endDate;
-      if (type) params.type = type;
+      if (queryParams?.start_date) params.start_date = queryParams.start_date;
+      if (queryParams?.end_date) params.end_date = queryParams.end_date;
+      if (queryParams?.month) params.month = queryParams.month;
+      if (queryParams?.year) params.year = queryParams.year;
       
       const response = await apiClient.get<CalendarEventsResponse>('/events', { params });
       
@@ -40,10 +38,7 @@ export const calendarService = {
    */
   getMonthEvents: async (year: number, month: number): Promise<CalendarEvent[]> => {
     try {
-      const startDate = `${year}-${month.toString().padStart(2, '0')}-01`;
-      const endDate = new Date(year, month, 0).toISOString().split('T')[0]; // Último día del mes
-      
-      return await calendarService.getEvents(startDate, endDate);
+      return await calendarService.getEvents({ month, year });
     } catch (error) {
       throw new Error(handleApiError(error));
     }

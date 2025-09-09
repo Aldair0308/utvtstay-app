@@ -6,22 +6,31 @@ export interface CalendarEvent {
   end_date: string;
   start_time?: string;
   end_time?: string;
-  type: 'deadline' | 'meeting' | 'presentation' | 'review' | 'other';
+  type: 'deadline' | 'meeting' | 'reminder' | 'personal';
   priority: 'low' | 'medium' | 'high';
-  student_id: number;
+  color: string;
   created_at: string;
   updated_at: string;
-  is_all_day: boolean;
-  location?: string;
-  reminder_minutes?: number;
+  tutor?: {
+    id: number;
+    name: string;
+    email: string;
+  };
 }
 
 export interface CalendarEventsResponse {
   success: boolean;
+  message: string;
   data: {
     events: CalendarEvent[];
-    total: number;
   };
+}
+
+export interface EventsQueryParams {
+  start_date?: string;
+  end_date?: string;
+  month?: number;
+  year?: number;
 }
 
 export interface CreateEventRequest {
@@ -31,9 +40,7 @@ export interface CreateEventRequest {
   end_date: string;
   start_time?: string;
   end_time?: string;
-  type: 'deadline' | 'meeting' | 'presentation' | 'review' | 'other';
+  type: 'deadline' | 'meeting' | 'reminder' | 'personal';
   priority: 'low' | 'medium' | 'high';
-  is_all_day: boolean;
-  location?: string;
-  reminder_minutes?: number;
+  color: string;
 }
