@@ -1,4 +1,4 @@
-import apiClient, { handleApiError } from './api';
+import apiClient, { handleApiError } from "./api";
 import {
   File,
   FileListResponse,
@@ -6,8 +6,8 @@ import {
   FileHistory,
   ApiResponse,
   PaginatedResponse,
-} from '../interfaces';
-import { ERROR_MESSAGES } from '../const/errors';
+} from "../interfaces";
+import { ERROR_MESSAGES } from "../const/errors";
 
 export const filesService = {
   /**
@@ -24,41 +24,49 @@ export const filesService = {
         page,
         per_page: perPage,
       };
-      
+
       if (status) params.status = status;
       if (search) params.search = search;
-      
-      const response = await apiClient.get<FileListResponse>('/files', { params });
-      
+
+      const response = await apiClient.get<FileListResponse>("/files", {
+        params,
+      });
+
       if (response.data.success && response.data.data) {
         // Mapear la respuesta de la API al formato esperado por la interfaz
         const apiFiles = response.data.data.files.map((file: any) => ({
           id: file.id?.toString() || file.id,
-          name: file.name || '',
-          content: file.content || '',
-          description: file.description || file.tutor_observations || '',
+          name: file.name || "",
+          content: file.content || "",
+          description: file.description || file.tutor_observations || "",
           version: file.version || 1,
-          status: file.status || 'pending',
-          createdAt: file.created_at || file.createdAt || new Date().toISOString(),
-          updatedAt: file.updated_at || file.updatedAt || new Date().toISOString(),
+          status: file.status || "pending",
+          createdAt:
+            file.created_at || file.createdAt || new Date().toISOString(),
+          updatedAt:
+            file.updated_at || file.updatedAt || new Date().toISOString(),
           studentId: file.student_id || file.studentId || 0,
-          mimeType: file.mime_type || file.mimeType || file.file_type || 'application/octet-stream',
-          fileType: file.file_type || file.fileType || 'unknown',
+          mimeType:
+            file.mime_type ||
+            file.mimeType ||
+            file.file_type ||
+            "application/octet-stream",
+          fileType: file.file_type || file.fileType || "unknown",
           size: file.size || 0,
-          tutorObservations: file.tutor_observations || file.tutorObservations
+          tutorObservations: file.tutor_observations || file.tutorObservations,
         }));
 
         return {
           files: apiFiles,
           total: response.data.data.total || apiFiles.length,
           current_page: response.data.data.current_page || page,
-          per_page: response.data.data.per_page || perPage
+          per_page: response.data.data.per_page || perPage,
         };
       }
-      
-      throw new Error('Error al obtener los archivos');
+
+      throw new Error("Error al obtener los archivos");
     } catch (error) {
-      console.error('Error en getFiles:', error);
+      console.error("Error en getFiles:", error);
       throw new Error(handleApiError(error));
     }
   },
@@ -68,32 +76,44 @@ export const filesService = {
    */
   getFileById: async (fileId: string): Promise<File> => {
     try {
-      const response = await apiClient.get<FileDetailResponse>(`/files/${fileId}`);
-      
-      if (response.data.success && response.data.data && response.data.data.file) {
+      const response = await apiClient.get<FileDetailResponse>(
+        `/files/${fileId}`
+      );
+
+      if (
+        response.data.success &&
+        response.data.data &&
+        response.data.data.file
+      ) {
         const file = response.data.data.file;
-        
+
         // Mapear la respuesta de la API al formato esperado por la interfaz
         return {
           id: file.id?.toString() || file.id,
-          name: file.name || '',
-          content: file.content || '',
-          description: file.description || file.tutor_observations || '',
+          name: file.name || "",
+          content: file.content || "",
+          description: file.description || file.tutor_observations || "",
           version: file.version || 1,
-          status: file.status || 'pending',
-          createdAt: file.created_at || file.createdAt || new Date().toISOString(),
-          updatedAt: file.updated_at || file.updatedAt || new Date().toISOString(),
+          status: file.status || "pending",
+          createdAt:
+            file.created_at || file.createdAt || new Date().toISOString(),
+          updatedAt:
+            file.updated_at || file.updatedAt || new Date().toISOString(),
           studentId: file.student_id || file.studentId || 0,
-          mimeType: file.mime_type || file.mimeType || file.file_type || 'application/octet-stream',
-          fileType: file.file_type || file.fileType || 'unknown',
+          mimeType:
+            file.mime_type ||
+            file.mimeType ||
+            file.file_type ||
+            "application/octet-stream",
+          fileType: file.file_type || file.fileType || "unknown",
           size: file.size || 0,
-          tutorObservations: file.tutor_observations || file.tutorObservations
+          tutorObservations: file.tutor_observations || file.tutorObservations,
         };
       }
-      
+
       throw new Error(ERROR_MESSAGES.FILE_NOT_FOUND);
     } catch (error) {
-      console.error('Error en getFileById:', error);
+      console.error("Error en getFileById:", error);
       throw new Error(handleApiError(error));
     }
   },
@@ -103,34 +123,43 @@ export const filesService = {
    */
   updateFileContent: async (fileId: string, content: string): Promise<File> => {
     try {
-      const response = await apiClient.post<ApiResponse<File>>(`/files/${fileId}/content`, {
-        content,
-      });
-      
+      const response = await apiClient.post<ApiResponse<File>>(
+        `/files/${fileId}/content`,
+        {
+          content,
+        }
+      );
+
       if (response.data.success && response.data.data) {
         const file = response.data.data;
-        
+
         // Mapear la respuesta de la API al formato esperado por la interfaz
         return {
           id: file.id?.toString() || file.id,
-          name: file.name || '',
-          content: file.content || '',
-          description: file.description || file.tutor_observations || '',
+          name: file.name || "",
+          content: file.content || "",
+          description: file.description || file.tutor_observations || "",
           version: file.version || 1,
-          status: file.status || 'pending',
-          createdAt: file.created_at || file.createdAt || new Date().toISOString(),
-          updatedAt: file.updated_at || file.updatedAt || new Date().toISOString(),
+          status: file.status || "pending",
+          createdAt:
+            file.created_at || file.createdAt || new Date().toISOString(),
+          updatedAt:
+            file.updated_at || file.updatedAt || new Date().toISOString(),
           studentId: file.student_id || file.studentId || 0,
-          mimeType: file.mime_type || file.mimeType || file.file_type || 'application/octet-stream',
-          fileType: file.file_type || file.fileType || 'unknown',
+          mimeType:
+            file.mime_type ||
+            file.mimeType ||
+            file.file_type ||
+            "application/octet-stream",
+          fileType: file.file_type || file.fileType || "unknown",
           size: file.size || 0,
-          tutorObservations: file.tutor_observations || file.tutorObservations
+          tutorObservations: file.tutor_observations || file.tutorObservations,
         };
       }
-      
+
       throw new Error(ERROR_MESSAGES.FILE_UPDATE_ERROR);
     } catch (error) {
-      console.error('Error en updateFileContent:', error);
+      console.error("Error en updateFileContent:", error);
       throw new Error(handleApiError(error));
     }
   },
@@ -140,32 +169,41 @@ export const filesService = {
    */
   updateFile: async (fileId: string, data: Partial<File>): Promise<File> => {
     try {
-      const response = await apiClient.put<ApiResponse<File>>(`/files/${fileId}`, data);
-      
+      const response = await apiClient.put<ApiResponse<File>>(
+        `/files/${fileId}`,
+        data
+      );
+
       if (response.data.success && response.data.data) {
         const file = response.data.data;
-        
+
         // Mapear la respuesta de la API al formato esperado por la interfaz
         return {
           id: file.id?.toString() || file.id,
-          name: file.name || '',
-          content: file.content || '',
-          description: file.description || file.tutor_observations || '',
+          name: file.name || "",
+          content: file.content || "",
+          description: file.description || file.tutor_observations || "",
           version: file.version || 1,
-          status: file.status || 'pending',
-          createdAt: file.created_at || file.createdAt || new Date().toISOString(),
-          updatedAt: file.updated_at || file.updatedAt || new Date().toISOString(),
+          status: file.status || "pending",
+          createdAt:
+            file.created_at || file.createdAt || new Date().toISOString(),
+          updatedAt:
+            file.updated_at || file.updatedAt || new Date().toISOString(),
           studentId: file.student_id || file.studentId || 0,
-          mimeType: file.mime_type || file.mimeType || file.file_type || 'application/octet-stream',
-          fileType: file.file_type || file.fileType || 'unknown',
+          mimeType:
+            file.mime_type ||
+            file.mimeType ||
+            file.file_type ||
+            "application/octet-stream",
+          fileType: file.file_type || file.fileType || "unknown",
           size: file.size || 0,
-          tutorObservations: file.tutor_observations || file.tutorObservations
+          tutorObservations: file.tutor_observations || file.tutorObservations,
         };
       }
-      
+
       throw new Error(ERROR_MESSAGES.FILE_UPDATE_ERROR);
     } catch (error) {
-      console.error('Error en updateFile:', error);
+      console.error("Error en updateFile:", error);
       throw new Error(handleApiError(error));
     }
   },
@@ -175,26 +213,28 @@ export const filesService = {
    */
   getFileHistory: async (fileId: string): Promise<FileHistory[]> => {
     try {
-      const response = await apiClient.get<any>(
-        `/files/${fileId}/history`
-      );
-      
-      if (response.data.success && response.data.data && response.data.data.history) {
+      const response = await apiClient.get<any>(`/files/${fileId}/history`);
+
+      if (
+        response.data.success &&
+        response.data.data &&
+        response.data.data.history
+      ) {
         // Mapear la nueva estructura de respuesta del backend
         return response.data.data.history.map((item: any) => ({
           id: item.id || 0,
           file_id: parseInt(fileId) || item.file_id || 0,
           version: item.version || 1,
-          content: item.content_after || item.content || '',
-          changes_description: item.description || 'Sin descripción',
+          content: item.content_after || item.content || "",
+          changes_description: item.description || "Sin descripción",
           created_at: item.created_at || new Date().toISOString(),
-          created_by: item.user?.id || item.created_by || 0
+          created_by: item.user?.id || item.created_by || 0,
         }));
       }
-      
+
       return [];
     } catch (error) {
-      console.error('Error en getFileHistory:', error);
+      console.error("Error en getFileHistory:", error);
       throw new Error(handleApiError(error));
     }
   },
@@ -202,36 +242,45 @@ export const filesService = {
   /**
    * Restaurar una versión anterior del archivo
    */
-  restoreFileVersion: async (fileId: string, versionId: string): Promise<File> => {
+  restoreFileVersion: async (
+    fileId: string,
+    versionId: string
+  ): Promise<File> => {
     try {
       const response = await apiClient.post<ApiResponse<File>>(
         `/files/${fileId}/restore/${versionId}`
       );
-      
+
       if (response.data.success && response.data.data) {
         const file = response.data.data;
-        
+
         // Mapear la respuesta de la API al formato esperado por la interfaz
         return {
           id: file.id?.toString() || file.id,
-          name: file.name || '',
-          content: file.content || '',
-          description: file.description || file.tutor_observations || '',
+          name: file.name || "",
+          content: file.content || "",
+          description: file.description || file.tutor_observations || "",
           version: file.version || 1,
-          status: file.status || 'pending',
-          createdAt: file.created_at || file.createdAt || new Date().toISOString(),
-          updatedAt: file.updated_at || file.updatedAt || new Date().toISOString(),
+          status: file.status || "pending",
+          createdAt:
+            file.created_at || file.createdAt || new Date().toISOString(),
+          updatedAt:
+            file.updated_at || file.updatedAt || new Date().toISOString(),
           studentId: file.student_id || file.studentId || 0,
-          mimeType: file.mime_type || file.mimeType || file.file_type || 'application/octet-stream',
-          fileType: file.file_type || file.fileType || 'unknown',
+          mimeType:
+            file.mime_type ||
+            file.mimeType ||
+            file.file_type ||
+            "application/octet-stream",
+          fileType: file.file_type || file.fileType || "unknown",
           size: file.size || 0,
-          tutorObservations: file.tutor_observations || file.tutorObservations
+          tutorObservations: file.tutor_observations || file.tutorObservations,
         };
       }
-      
+
       throw new Error(ERROR_MESSAGES.FILE_RESTORE_ERROR);
     } catch (error) {
-      console.error('Error en restoreFileVersion:', error);
+      console.error("Error en restoreFileVersion:", error);
       throw new Error(handleApiError(error));
     }
   },
@@ -245,32 +294,38 @@ export const filesService = {
     file_type: string;
   }): Promise<File> => {
     try {
-      const response = await apiClient.post<ApiResponse<File>>('/files', data);
-      
+      const response = await apiClient.post<ApiResponse<File>>("/files", data);
+
       if (response.data.success && response.data.data) {
         const file = response.data.data;
-        
+
         // Mapear la respuesta de la API al formato esperado por la interfaz
         return {
           id: file.id?.toString() || file.id,
-          name: file.name || '',
-          content: file.content || '',
-          description: file.description || file.tutor_observations || '',
+          name: file.name || "",
+          content: file.content || "",
+          description: file.description || file.tutor_observations || "",
           version: file.version || 1,
-          status: file.status || 'pending',
-          createdAt: file.created_at || file.createdAt || new Date().toISOString(),
-          updatedAt: file.updated_at || file.updatedAt || new Date().toISOString(),
+          status: file.status || "pending",
+          createdAt:
+            file.created_at || file.createdAt || new Date().toISOString(),
+          updatedAt:
+            file.updated_at || file.updatedAt || new Date().toISOString(),
           studentId: file.student_id || file.studentId || 0,
-          mimeType: file.mime_type || file.mimeType || file.file_type || 'application/octet-stream',
-          fileType: file.file_type || file.fileType || 'unknown',
+          mimeType:
+            file.mime_type ||
+            file.mimeType ||
+            file.file_type ||
+            "application/octet-stream",
+          fileType: file.file_type || file.fileType || "unknown",
           size: file.size || 0,
-          tutorObservations: file.tutor_observations || file.tutorObservations
+          tutorObservations: file.tutor_observations || file.tutorObservations,
         };
       }
-      
+
       throw new Error(ERROR_MESSAGES.FILE_CREATE_ERROR);
     } catch (error) {
-      console.error('Error en createFile:', error);
+      console.error("Error en createFile:", error);
       throw new Error(handleApiError(error));
     }
   },
@@ -281,12 +336,95 @@ export const filesService = {
   deleteFile: async (fileId: string): Promise<void> => {
     try {
       const response = await apiClient.delete<ApiResponse>(`/files/${fileId}`);
-      
+
       if (!response.data.success) {
-        throw new Error(response.data.message || ERROR_MESSAGES.FILE_DELETE_ERROR);
+        throw new Error(
+          response.data.message || ERROR_MESSAGES.FILE_DELETE_ERROR
+        );
       }
     } catch (error) {
-      console.error('Error en deleteFile:', error);
+      console.error("Error en deleteFile:", error);
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  /**
+   * Obtener contenido de un archivo
+   */
+  getFileContent: async (
+    fileId: string
+  ): Promise<{ content: string; mimeType: string }> => {
+    try {
+      const response = await apiClient.get<
+        ApiResponse<{ content: string; mime_type: string }>
+      >(`/files/${fileId}/content`);
+
+      if (response.data.success && response.data.data) {
+        return {
+          content: response.data.data.content,
+          mimeType: response.data.data.mime_type,
+        };
+      }
+
+      throw new Error(
+        response.data.message || "Error al obtener contenido del archivo"
+      );
+    } catch (error) {
+      console.error("Error en getFileContent:", error);
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  /**
+   * Obtiene el contenido de un cambio específico de archivo
+   * @param changeId - ID del cambio
+   * @returns Contenido del cambio con información adicional
+   */
+  getFileChangeContent: async (changeId: string): Promise<any> => {
+    try {
+      const response = await apiClient.get<
+        ApiResponse<any>
+      >(`/file-changes/${changeId}/content`);
+
+      if (response.data.success && response.data.data) {
+        const data = response.data.data;
+        return {
+          content: data.content || '',
+          mimeType: data.file?.mime_type || 'text/plain',
+          content_type: data.content_type,
+          has_new_content: data.has_new_content,
+          file_change: data.file_change,
+          file: data.file
+        };
+      }
+
+      throw new Error(
+        response.data.message || "Error al obtener contenido del cambio"
+      );
+    } catch (error) {
+      console.error("Error en getFileChangeContent:", error);
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  /**
+   * Obtener detalles de un cambio específico
+   */
+  getFileChangeDetails: async (changeId: string): Promise<any> => {
+    try {
+      const response = await apiClient.get<ApiResponse<any>>(
+        `/file-changes/${changeId}`
+      );
+
+      if (response.data.success && response.data.data) {
+        return response.data.data;
+      }
+
+      throw new Error(
+        response.data.message || "Error al obtener detalles del cambio"
+      );
+    } catch (error) {
+      console.error("Error en getFileChangeDetails:", error);
       throw new Error(handleApiError(error));
     }
   },

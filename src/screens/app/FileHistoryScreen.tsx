@@ -97,11 +97,11 @@ const FileHistoryScreen: React.FC = () => {
   };
 
   const viewVersionContent = (item: FileHistoryItem) => {
-    // En una implementación real, navegarías a una pantalla de vista previa
-    Alert.alert(
-      `Contenido - Versión ${item.version}`,
-      'Esta funcionalidad abriría el contenido de la versión seleccionada en modo de solo lectura.'
-    );
+    navigation.navigate('FileContentViewer', {
+      changeId: item.id,
+      title: fileName || 'Archivo',
+      version: item.version
+    });
   };
 
   const restoreVersion = (item: FileHistoryItem) => {

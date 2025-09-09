@@ -32,6 +32,12 @@ export type AppStackParamList = {
   FileDetail: { fileId: string };
   FileHistory: { fileId: string };
   FileEdit: { fileId: string };
+  FileContentViewer: {
+    fileId?: string;
+    changeId?: string;
+    title: string;
+    version?: number;
+  };
   Calendar: undefined;
   Profile: undefined;
 };

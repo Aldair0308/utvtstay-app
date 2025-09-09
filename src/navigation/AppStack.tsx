@@ -8,6 +8,7 @@ import FilesScreen from '../screens/app/FilesScreen';
 import FileDetailScreen from '../screens/app/FileDetailScreen';
 import FileHistoryScreen from '../screens/app/FileHistoryScreen';
 import FileEditScreen from '../screens/app/FileEditScreen';
+import FileContentViewer from '../screens/app/FileContentViewer';
 import CalendarScreen from '../screens/app/CalendarScreen';
 import ProfileScreen from '../screens/app/ProfileScreen';
 
@@ -71,6 +72,14 @@ const AppStack: React.FC = () => {
         component={FileEditScreen}
         options={{
           title: 'Editar Archivo',
+        }}
+      />
+      
+      <Stack.Screen 
+        name="FileContentViewer" 
+        component={FileContentViewer}
+        options={{
+          headerShown: false, // La pantalla maneja su propio header
         }}
       />
       
