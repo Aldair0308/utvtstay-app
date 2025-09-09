@@ -97,11 +97,21 @@ const FileHistoryScreen: React.FC = () => {
   };
 
   const viewVersionContent = (item: FileHistoryItem) => {
-    navigation.navigate('FileContentViewer', {
-      changeId: item.id,
-      title: fileName || 'Archivo',
-      version: item.version
-    });
+    // Si es la versión 1, usar el fileId para obtener el contenido del archivo original
+    // Si es otra versión, usar el changeId para obtener el contenido del cambio
+    if (item.version === 1) {
+      navigation.navigate('FileContentViewer', {
+        fileId: fileId,
+        title: fileName || 'Archivo',
+        version: item.version
+      });
+    } else {
+      navigation.navigate('FileContentViewer', {
+        changeId: item.id,
+        title: fileName || 'Archivo',
+        version: item.version
+      });
+    }
   };
 
   const restoreVersion = (item: FileHistoryItem) => {

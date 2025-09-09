@@ -24,6 +24,7 @@ type FileContentViewerNavigationProp = StackNavigationProp<AppStackParamList, 'F
 interface ContentData {
   content: string;
   mimeType?: string;
+  html?: string;
   content_type?: string;
   has_new_content?: boolean;
   file_change?: {
@@ -84,15 +85,16 @@ const FileContentViewer: React.FC = () => {
   const renderContent = () => {
     if (!content) return null;
 
-    const { content: fileContent, mimeType, content_type } = content;
+    const { content: fileContent, mimeType, html, content_type } = content;
     const screenHeight = Dimensions.get('window').height;
 
-    // Si el contenido es HTML, usar WebView
-    if (content_type === 'html' || (mimeType && mimeType.includes('html'))) {
+    // Si hay HTML disponible o el contenido es HTML, usar WebView
+    if (html || content_type === 'html' || (mimeType && mimeType.includes('html'))) {
+      const htmlContent = html || fileContent;
       return (
         <View style={[styles.webViewContainer, { height: screenHeight - 120 }]}>
           <WebView
-            source={{ html: fileContent }}
+            source={{ html: htmlContent }}
             style={styles.webView}
             scalesPageToFit={true}
             startInLoadingState={true}

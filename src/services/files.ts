@@ -353,16 +353,17 @@ export const filesService = {
    */
   getFileContent: async (
     fileId: string
-  ): Promise<{ content: string; mimeType: string }> => {
+  ): Promise<{ content: string; mimeType: string; html?: string }> => {
     try {
       const response = await apiClient.get<
-        ApiResponse<{ content: string; mime_type: string }>
+        ApiResponse<{ content: string; mime_type: string; html?: string }>
       >(`/files/${fileId}/content`);
 
       if (response.data.success && response.data.data) {
         return {
           content: response.data.data.content,
           mimeType: response.data.data.mime_type,
+          html: response.data.data.html,
         };
       }
 
