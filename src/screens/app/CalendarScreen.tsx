@@ -36,9 +36,9 @@ const CalendarScreen: React.FC = () => {
   const [calendarDays, setCalendarDays] = useState<CalendarDay[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [showEventModal, setShowEventModal] = useState(false);
-  const [newEventTitle, setNewEventTitle] = useState("");
-  const [newEventDescription, setNewEventDescription] = useState("");
+  const [showEventDetailModal, setShowEventDetailModal] = useState(false);
+  const [selectedEventDetail, setSelectedEventDetail] =
+    useState<CalendarEvent | null>(null);
 
   const monthNames = [
     "Enero",
@@ -72,7 +72,10 @@ const CalendarScreen: React.FC = () => {
       generateCalendarDays(events);
     } catch (error) {
       console.error("Error loading calendar data:", error);
-      Alert.alert('Error', 'No se pudieron cargar los eventos del calendario. Por favor, intenta nuevamente.');
+      Alert.alert(
+        "Error",
+        "No se pudieron cargar los eventos del calendario. Por favor, intenta nuevamente."
+      );
       // En caso de error, mostrar eventos vacíos en lugar de fallar
       setEvents([]);
       generateCalendarDays([]);
@@ -103,12 +106,12 @@ const CalendarScreen: React.FC = () => {
         const eventStartDate = new Date(event.start_date);
         const eventEndDate = new Date(event.end_date);
         const currentDay = new Date(currentDateIter);
-        
+
         // Normalizar las fechas para comparar solo el día (sin hora)
         eventStartDate.setHours(0, 0, 0, 0);
         eventEndDate.setHours(0, 0, 0, 0);
         currentDay.setHours(0, 0, 0, 0);
-        
+
         // El evento aparece en el día si:
         // - El día actual está entre la fecha de inicio y fin del evento (inclusive)
         return currentDay >= eventStartDate && currentDay <= eventEndDate;
@@ -143,65 +146,47 @@ const CalendarScreen: React.FC = () => {
       // Mostrar eventos del día
       showDayEvents(day);
     } else {
-      // Opción para agregar evento
+      // Solo mostrar información del día seleccionado
       Alert.alert(
         "Día seleccionado",
-        `${day.date.toLocaleDateString("es-ES")}\n\n¿Deseas agregar un evento?`,
+        `${day.date.toLocaleDateString("es-ES")}\n\nNo hay eventos programados para este día.`,
         [
-          { text: "Cancelar", style: "cancel" },
-          { text: "Agregar Evento", onPress: () => openEventModal(day.date) },
+          { text: "Aceptar", style: "default" },
         ]
       );
     }
   };
 
   const showDayEvents = (day: CalendarDay) => {
-    const eventsList = day.events.map((event) => `• ${event.title}`).join("\n");
-    Alert.alert(
-      `Eventos - ${day.date.toLocaleDateString("es-ES")}`,
-      eventsList,
-      [
-        { text: "Cerrar", style: "cancel" },
-        { text: "Agregar Evento", onPress: () => openEventModal(day.date) },
-      ]
-    );
+    if (day.events.length === 1) {
+      // Si solo hay un evento, abrir directamente el modal detallado
+      openEventDetailModal(day.events[0]);
+    } else {
+      // Si hay múltiples eventos, mostrar lista para seleccionar
+      const eventButtons = day.events.map((event, index) => ({
+        text: event.title,
+        onPress: () => openEventDetailModal(event),
+      }));
+
+      eventButtons.push(
+        { text: "Cancelar", style: "cancel" as const }
+      );
+
+      Alert.alert(
+        `Eventos - ${day.date.toLocaleDateString("es-ES", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+        })}`,
+        "Selecciona un evento para ver los detalles:",
+        eventButtons
+      );
+    }
   };
 
-  const openEventModal = (date: Date) => {
-    setSelectedDate(date);
-    setNewEventTitle("");
-    setNewEventDescription("");
-    setShowEventModal(true);
-  };
-
-  const handleCreateEvent = async () => {
-    if (!newEventTitle.trim() || !selectedDate) {
-      Alert.alert("Error", "El título del evento es requerido");
-      return;
-    }
-
-    try {
-      const dateString = selectedDate.toISOString().split('T')[0];
-      const newEvent: Omit<CalendarEvent, "id"> = {
-        title: newEventTitle.trim(),
-        description: newEventDescription.trim(),
-        start_date: dateString,
-        end_date: dateString,
-        start_time: "09:00:00",
-        end_time: "10:00:00",
-        type: "personal",
-        color: theme.colors.primary,
-        priority: "medium"
-      };
-
-      await calendarService.createEvent(newEvent);
-      setShowEventModal(false);
-      loadCalendarData(); // Recargar calendario
-      Alert.alert("Éxito", "Evento creado correctamente");
-    } catch (error) {
-      console.error("Error creating event:", error);
-      Alert.alert("Error", "No se pudo crear el evento");
-    }
+  const openEventDetailModal = (event: CalendarEvent) => {
+    setSelectedEventDetail(event);
+    setShowEventDetailModal(true);
   };
 
   const getEventColor = (event: CalendarEvent): string => {
@@ -222,6 +207,46 @@ const CalendarScreen: React.FC = () => {
         return "#10B981"; // Verde para eventos personales
       default:
         return theme.colors.secondary;
+    }
+  };
+
+  const formatEventDate = (event: CalendarEvent): string => {
+    const startDate = new Date(event.start_date);
+    const endDate = new Date(event.end_date);
+
+    // Normalizar fechas para comparar solo el día
+    const normalizedStart = new Date(
+      startDate.getFullYear(),
+      startDate.getMonth(),
+      startDate.getDate()
+    );
+    const normalizedEnd = new Date(
+      endDate.getFullYear(),
+      endDate.getMonth(),
+      endDate.getDate()
+    );
+
+    if (normalizedStart.getTime() === normalizedEnd.getTime()) {
+      // Evento de un solo día - formato completo
+      return startDate.toLocaleDateString("es-ES", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+    } else {
+      // Evento de múltiples días - formato de rango
+      const startFormatted = startDate.toLocaleDateString("es-ES", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+      const endFormatted = endDate.toLocaleDateString("es-ES", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+      return `${startFormatted} - ${endFormatted}`;
     }
   };
 
@@ -337,7 +362,11 @@ const CalendarScreen: React.FC = () => {
             .filter((event) => new Date(event.start_date) >= new Date())
             .slice(0, 3)
             .map((event, index) => (
-              <View key={index} style={styles.upcomingEvent}>
+              <TouchableOpacity
+                key={index}
+                style={styles.upcomingEvent}
+                onPress={() => openEventDetailModal(event)}
+              >
                 <View
                   style={[
                     styles.eventColorIndicator,
@@ -354,25 +383,10 @@ const CalendarScreen: React.FC = () => {
                     </Text>
                   </View>
                   <Text style={styles.eventDate} numberOfLines={1}>
-                    {new Date(event.start_date).toLocaleDateString("es-ES", {
-                      month: "short",
-                      day: "numeric",
-                    })}
-                    {event.start_time && ` - ${event.start_time}`}
-                  </Text>
-                  <Text style={styles.eventType} numberOfLines={1}>
-                    {event.type === "deadline"
-                      ? "Fecha límite"
-                      : event.type === "meeting"
-                      ? "Reunión"
-                      : event.type === "reminder"
-                      ? "Recordatorio"
-                      : event.type === "personal"
-                      ? "Personal"
-                      : event.type}
+                    {formatEventDate(event)}
                   </Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             ))}
           {events.filter((event) => new Date(event.start_date) >= new Date())
             .length === 0 && (
@@ -381,58 +395,81 @@ const CalendarScreen: React.FC = () => {
         </ScrollView>
       </View>
 
-      {/* Add Event Modal */}
+      {/* Event Detail Modal */}
       <Modal
-        visible={showEventModal}
+        visible={showEventDetailModal}
         animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowEventModal(false)}
+        presentationStyle="fullScreen"
+        onRequestClose={() => setShowEventDetailModal(false)}
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setShowEventModal(false)}>
-              <Text style={styles.modalCancelButton}>Cancelar</Text>
+            <TouchableOpacity onPress={() => setShowEventDetailModal(false)}>
+              <Text style={styles.modalCancelButton}>Cerrar</Text>
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>Nuevo Evento</Text>
-            <TouchableOpacity onPress={handleCreateEvent}>
-              <Text style={styles.modalSaveButton}>Guardar</Text>
-            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Detalles del Evento</Text>
+            <View style={{ width: 60 }} />
           </View>
 
-          <ScrollView style={styles.modalContent}>
-            <Text style={styles.modalDate}>
-              {selectedDate?.toLocaleDateString("es-ES", {
-                weekday: "long",
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
-            </Text>
+          <ScrollView
+            style={styles.modalContent}
+            contentContainerStyle={{ paddingBottom: 0 }}
+          >
+            {selectedEventDetail && (
+              <>
+                <View style={styles.eventDetailHeader}>
+                  <View
+                    style={[
+                      styles.eventDetailColorIndicator,
+                      { backgroundColor: getEventColor(selectedEventDetail) },
+                    ]}
+                  />
+                  <View style={styles.eventDetailTitleContainer}>
+                    <Text style={styles.eventDetailTitle}>
+                      {selectedEventDetail.title}
+                    </Text>
+                  </View>
+                </View>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Título del Evento</Text>
-              <TextInput
-                style={styles.input}
-                value={newEventTitle}
-                onChangeText={setNewEventTitle}
-                placeholder="Ingresa el título del evento"
-                placeholderTextColor={theme.colors.textTertiary}
-              />
-            </View>
+                <View style={styles.eventDetailSection}>
+                  <Text style={styles.eventDetailSectionTitle}>Fecha</Text>
+                  <Text style={styles.eventDetailText}>
+                    {formatEventDate(selectedEventDetail)}
+                  </Text>
+                </View>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Descripción (Opcional)</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                value={newEventDescription}
-                onChangeText={setNewEventDescription}
-                placeholder="Descripción del evento"
-                placeholderTextColor={theme.colors.textTertiary}
-                multiline
-                numberOfLines={4}
-                textAlignVertical="top"
-              />
-            </View>
+                {selectedEventDetail.tutor && (
+                  <View style={styles.eventDetailSection}>
+                    <Text style={styles.eventDetailSectionTitle}>Tutor</Text>
+                    <Text style={styles.eventDetailText}>
+                      {selectedEventDetail.tutor.name}
+                    </Text>
+                  </View>
+                )}
+
+                {selectedEventDetail.description && (
+                  <View style={styles.eventDetailSection}>
+                    <Text style={styles.eventDetailSectionTitle}>
+                      Descripción
+                    </Text>
+                    <Text style={styles.eventDetailText}>
+                      {selectedEventDetail.description}
+                    </Text>
+                  </View>
+                )}
+
+                {selectedEventDetail.created_by && (
+                  <View style={styles.eventDetailSection}>
+                    <Text style={styles.eventDetailSectionTitle}>
+                      Creado por
+                    </Text>
+                    <Text style={styles.eventDetailText}>
+                      {selectedEventDetail.created_by}
+                    </Text>
+                  </View>
+                )}
+              </>
+            )}
           </ScrollView>
         </View>
       </Modal>
@@ -636,6 +673,7 @@ const styles = StyleSheet.create({
   modalContent: {
     flex: 1,
     padding: theme.spacing.screenPadding,
+    paddingBottom: theme.spacing.screenPadding,
   },
   modalDate: {
     ...theme.typography.styles.h4,
@@ -656,6 +694,47 @@ const styles = StyleSheet.create({
   textArea: {
     height: 100,
     paddingTop: theme.spacing.inputPadding,
+  },
+  eventDetailHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: theme.spacing.lg,
+    paddingBottom: theme.spacing.md,
+    borderBottomWidth: theme.dimensions.borderWidth.thin,
+    borderBottomColor: theme.colors.border,
+  },
+  eventDetailColorIndicator: {
+    width: 6,
+    height: 60,
+    borderRadius: 3,
+    marginRight: theme.spacing.md,
+  },
+  eventDetailTitleContainer: {
+    flex: 1,
+  },
+  eventDetailTitle: {
+    ...theme.typography.styles.h3,
+    marginBottom: theme.spacing.xs,
+  },
+  eventDetailPriority: {
+    ...theme.typography.styles.body,
+    color: theme.colors.textSecondary,
+    fontWeight: "500",
+  },
+  eventDetailSection: {
+    marginBottom: theme.spacing.lg,
+  },
+  eventDetailSectionTitle: {
+    ...theme.typography.styles.label,
+    color: theme.colors.primary,
+    marginBottom: theme.spacing.sm,
+    fontWeight: "600",
+  },
+  eventDetailText: {
+    ...theme.typography.styles.body,
+    color: theme.colors.textPrimary,
+    lineHeight: 22,
+    marginBottom: theme.spacing.xs,
   },
 });
 
