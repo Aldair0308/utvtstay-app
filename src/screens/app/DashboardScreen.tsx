@@ -68,6 +68,67 @@ const DashboardScreen: React.FC = () => {
     loadDashboardData();
   };
 
+  const getEventColor = (event: CalendarEvent): string => {
+    // Si el evento tiene color personalizado, usarlo
+    if (event.color) {
+      return event.color;
+    }
+
+    // Colores por defecto según el tipo
+    switch (event.type) {
+      case "deadline":
+        return "#EF4444"; // Rojo para fechas límite
+      case "meeting":
+        return "#3B82F6"; // Azul para reuniones
+      case "reminder":
+        return "#F59E0B"; // Amarillo para recordatorios
+      case "personal":
+        return "#10B981"; // Verde para eventos personales
+      default:
+        return theme.colors.primary;
+    }
+  };
+
+  const formatEventDate = (event: CalendarEvent): string => {
+    const startDate = new Date(event.start_date);
+    const endDate = new Date(event.end_date);
+    
+    // Verificar si es el mismo día
+    const isSameDay = startDate.toDateString() === endDate.toDateString();
+    
+    if (isSameDay) {
+      // Formato completo para eventos de un solo día
+      const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+      const monthNames = [
+        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+      ];
+      
+      const dayName = dayNames[startDate.getDay()];
+      const day = startDate.getDate();
+      const monthName = monthNames[startDate.getMonth()];
+      const year = startDate.getFullYear();
+      
+      return `${dayName} ${day} de ${monthName} ${year}`;
+    } else {
+      // Formato de rango para eventos de múltiples días
+      const shortMonthNames = [
+        'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
+        'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
+      ];
+      
+      const startDay = startDate.getDate();
+      const startMonth = shortMonthNames[startDate.getMonth()];
+      const startYear = startDate.getFullYear();
+      
+      const endDay = endDate.getDate();
+      const endMonth = shortMonthNames[endDate.getMonth()];
+      const endYear = endDate.getFullYear();
+      
+      return `${startDay} ${startMonth} ${startYear} - ${endDay} ${endMonth} ${endYear}`;
+    }
+  };
+
   const handleLogout = () => {
     Alert.alert(
       'Cerrar Sesión',
@@ -199,12 +260,12 @@ const DashboardScreen: React.FC = () => {
               <View style={styles.eventInfo}>
                 <Text style={styles.eventTitle}>{event.title}</Text>
                 <Text style={styles.eventDate}>
-                  {new Date(event.startDate).toLocaleDateString()}
+                  {formatEventDate(event)}
                 </Text>
               </View>
               <View style={[
                 styles.eventType,
-                { backgroundColor: theme.colors.eventPrimary }
+                { backgroundColor: event.color || getEventColor(event) }
               ]} />
             </View>
           ))
