@@ -100,8 +100,18 @@ const CalendarScreen: React.FC = () => {
 
     while (currentDateIter <= endDate) {
       const dayEvents = eventsData.filter((event) => {
-        const eventDate = new Date(event.start_date);
-        return eventDate.toDateString() === currentDateIter.toDateString();
+        const eventStartDate = new Date(event.start_date);
+        const eventEndDate = new Date(event.end_date);
+        const currentDay = new Date(currentDateIter);
+        
+        // Normalizar las fechas para comparar solo el día (sin hora)
+        eventStartDate.setHours(0, 0, 0, 0);
+        eventEndDate.setHours(0, 0, 0, 0);
+        currentDay.setHours(0, 0, 0, 0);
+        
+        // El evento aparece en el día si:
+        // - El día actual está entre la fecha de inicio y fin del evento (inclusive)
+        return currentDay >= eventStartDate && currentDay <= eventEndDate;
       });
 
       days.push({
@@ -171,12 +181,17 @@ const CalendarScreen: React.FC = () => {
     }
 
     try {
+      const dateString = selectedDate.toISOString().split('T')[0];
       const newEvent: Omit<CalendarEvent, "id"> = {
         title: newEventTitle.trim(),
         description: newEventDescription.trim(),
-        date: selectedDate.toISOString(),
+        start_date: dateString,
+        end_date: dateString,
+        start_time: "09:00:00",
+        end_time: "10:00:00",
         type: "personal",
         color: theme.colors.primary,
+        priority: "medium"
       };
 
       await calendarService.createEvent(newEvent);

@@ -82,8 +82,8 @@ export const calendarService = {
         `/public/user/${userData.id}/events`
       );
 
-      if (response.data.success && response.data.data) {
-        const event = response.data.data.find(e => e.id === eventId);
+      if (response.data.success && response.data.data && response.data.data.events) {
+        const event = response.data.data.events.find(e => e.id === eventId);
         if (event) {
           return event;
         }
@@ -174,14 +174,14 @@ export const calendarService = {
       );
       console.log("Upcoming events response:", response.data);
 
-      if (response.data.success && response.data.data) {
+      if (response.data.success && response.data.data && response.data.data.events) {
         // Filtrar eventos próximos basado en los días especificados
         const now = new Date();
         const futureDate = new Date();
         futureDate.setDate(now.getDate() + days);
         
-        return response.data.data.filter(event => {
-          const eventDate = new Date(event.date);
+        return response.data.data.events.filter(event => {
+          const eventDate = new Date(event.start_date);
           return eventDate >= now && eventDate <= futureDate;
         });
       }
@@ -214,9 +214,9 @@ export const calendarService = {
         `/public/user/${userData.id}/events`
       );
 
-      if (response.data.success && response.data.data) {
+      if (response.data.success && response.data.data && response.data.data.events) {
         // Filtrar eventos por tipo
-        return response.data.data.filter(event => event.type === type);
+        return response.data.data.events.filter(event => event.type === type);
       }
 
       return [];
