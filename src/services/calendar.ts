@@ -1,34 +1,55 @@
-import apiClient, { handleApiError } from './api';
+import apiClient, { handleApiError } from "./api";
 import {
   CalendarEvent,
   CalendarEventsResponse,
   CreateEventRequest,
   EventsQueryParams,
   ApiResponse,
-} from '../interfaces';
-import { ERROR_MESSAGES } from '../const/errors';
+} from "../interfaces";
+import { ERROR_MESSAGES } from "../const/errors";
+import { storageService } from "./storage";
 
 export const calendarService = {
   /**
    * Obtener eventos del calendario
    */
-  getEvents: async (queryParams?: EventsQueryParams): Promise<CalendarEvent[]> => {
+  getEvents: async (
+    queryParams?: EventsQueryParams
+  ): Promise<CalendarEvent[]> => {
     try {
-      const params: any = {};
-      
-      if (queryParams?.start_date) params.start_date = queryParams.start_date;
-      if (queryParams?.end_date) params.end_date = queryParams.end_date;
-      if (queryParams?.month) params.month = queryParams.month;
-      if (queryParams?.year) params.year = queryParams.year;
-      
-      const response = await apiClient.get<CalendarEventsResponse>('/events', { params });
-      
-      if (response.data.success) {
-        return response.data.data.events;
+      const userData = await storageService.getUserData();
+      if (!userData?.id) {
+        throw new Error('User not authenticated');
       }
       
+      const requestParams: any = {};
+
+      if (queryParams?.start_date) requestParams.start_date = queryParams.start_date;
+      if (queryParams?.end_date) requestParams.end_date = queryParams.end_date;
+      if (queryParams?.month) requestParams.month = queryParams.month;
+      if (queryParams?.year) requestParams.year = queryParams.year;
+
+      console.log("Requesting events with params:", requestParams);
+
+      const response = await apiClient.get<CalendarEventsResponse>(
+        `/public/user/${userData.id}/events`,
+        { params: requestParams }
+      );
+      console.log("Events response:", response.data);
+
+      if (
+        response.data.success &&
+        response.data.data &&
+        response.data.data.events
+      ) {
+        return response.data.data.events;
+      }
+
+      // Si la respuesta no tiene la estructura esperada, devolver array vacío
+      console.warn("Unexpected response structure:", response.data);
       return [];
     } catch (error) {
+      console.error("Calendar service error:", error);
       throw new Error(handleApiError(error));
     }
   },
@@ -36,7 +57,10 @@ export const calendarService = {
   /**
    * Obtener eventos de un mes específico
    */
-  getMonthEvents: async (year: number, month: number): Promise<CalendarEvent[]> => {
+  getMonthEvents: async (
+    year: number,
+    month: number
+  ): Promise<CalendarEvent[]> => {
     try {
       return await calendarService.getEvents({ month, year });
     } catch (error) {
@@ -49,13 +73,23 @@ export const calendarService = {
    */
   getEventById: async (eventId: number): Promise<CalendarEvent> => {
     try {
-      const response = await apiClient.get<ApiResponse<CalendarEvent>>(`/events/${eventId}`);
-      
-      if (response.data.success && response.data.data) {
-        return response.data.data;
+      const userData = await storageService.getUserData();
+      if (!userData?.id) {
+        throw new Error('User not authenticated');
       }
       
-      throw new Error('Evento no encontrado');
+      const response = await apiClient.get<CalendarEventsResponse>(
+        `/public/user/${userData.id}/events`
+      );
+
+      if (response.data.success && response.data.data) {
+        const event = response.data.data.find(e => e.id === eventId);
+        if (event) {
+          return event;
+        }
+      }
+
+      throw new Error(ERROR_MESSAGES.NOT_FOUND);
     } catch (error) {
       throw new Error(handleApiError(error));
     }
@@ -64,15 +98,20 @@ export const calendarService = {
   /**
    * Crear un nuevo evento
    */
-  createEvent: async (eventData: CreateEventRequest): Promise<CalendarEvent> => {
+  createEvent: async (
+    eventData: CreateEventRequest
+  ): Promise<CalendarEvent> => {
     try {
-      const response = await apiClient.post<ApiResponse<CalendarEvent>>('/events', eventData);
-      
+      const response = await apiClient.post<ApiResponse<CalendarEvent>>(
+        `/api/events`,
+        eventData
+      );
+
       if (response.data.success && response.data.data) {
         return response.data.data;
       }
-      
-      throw new Error('Error al crear el evento');
+
+      throw new Error(ERROR_MESSAGES.UNEXPECTED_ERROR);
     } catch (error) {
       throw new Error(handleApiError(error));
     }
@@ -87,15 +126,15 @@ export const calendarService = {
   ): Promise<CalendarEvent> => {
     try {
       const response = await apiClient.put<ApiResponse<CalendarEvent>>(
-        `/events/${eventId}`,
+        `/api/events/${eventId}`,
         eventData
       );
-      
+
       if (response.data.success && response.data.data) {
         return response.data.data;
       }
-      
-      throw new Error('Error al actualizar el evento');
+
+      throw new Error("Error al actualizar el evento");
     } catch (error) {
       throw new Error(handleApiError(error));
     }
@@ -106,10 +145,12 @@ export const calendarService = {
    */
   deleteEvent: async (eventId: number): Promise<void> => {
     try {
-      const response = await apiClient.delete<ApiResponse>(`/events/${eventId}`);
-      
+      const response = await apiClient.delete<ApiResponse>(
+        `/api/events/${eventId}`
+      );
+
       if (!response.data.success) {
-        throw new Error(response.data.message || 'Error al eliminar el evento');
+        throw new Error(response.data.message || "Error al eliminar el evento");
       }
     } catch (error) {
       throw new Error(handleApiError(error));
@@ -121,15 +162,38 @@ export const calendarService = {
    */
   getUpcomingEvents: async (days: number = 7): Promise<CalendarEvent[]> => {
     try {
-      const today = new Date();
-      const futureDate = new Date();
-      futureDate.setDate(today.getDate() + days);
+      const userData = await storageService.getUserData();
+      if (!userData?.id) {
+        throw new Error('User not authenticated');
+      }
       
-      const startDate = today.toISOString().split('T')[0];
-      const endDate = futureDate.toISOString().split('T')[0];
-      
-      return await calendarService.getEvents(startDate, endDate);
+      console.log("Requesting upcoming events for days:", days);
+
+      const response = await apiClient.get<CalendarEventsResponse>(
+        `/public/user/${userData.id}/events`
+      );
+      console.log("Upcoming events response:", response.data);
+
+      if (response.data.success && response.data.data) {
+        // Filtrar eventos próximos basado en los días especificados
+        const now = new Date();
+        const futureDate = new Date();
+        futureDate.setDate(now.getDate() + days);
+        
+        return response.data.data.filter(event => {
+          const eventDate = new Date(event.date);
+          return eventDate >= now && eventDate <= futureDate;
+        });
+      }
+
+      // Si la respuesta no tiene la estructura esperada, devolver array vacío
+      console.warn(
+        "Unexpected upcoming events response structure:",
+        response.data
+      );
+      return [];
     } catch (error) {
+      console.error("Upcoming events service error:", error);
       throw new Error(handleApiError(error));
     }
   },
@@ -138,10 +202,24 @@ export const calendarService = {
    * Obtener eventos por tipo
    */
   getEventsByType: async (
-    type: 'deadline' | 'meeting' | 'presentation' | 'review' | 'other'
+    type: "deadline" | "meeting" | "presentation" | "review" | "other"
   ): Promise<CalendarEvent[]> => {
     try {
-      return await calendarService.getEvents(undefined, undefined, type);
+      const userData = await storageService.getUserData();
+      if (!userData?.id) {
+        throw new Error('User not authenticated');
+      }
+      
+      const response = await apiClient.get<CalendarEventsResponse>(
+        `/public/user/${userData.id}/events`
+      );
+
+      if (response.data.success && response.data.data) {
+        // Filtrar eventos por tipo
+        return response.data.data.filter(event => event.type === type);
+      }
+
+      return [];
     } catch (error) {
       throw new Error(handleApiError(error));
     }
@@ -153,13 +231,13 @@ export const calendarService = {
   markEventAsCompleted: async (eventId: number): Promise<CalendarEvent> => {
     try {
       const response = await apiClient.patch<ApiResponse<CalendarEvent>>(
-        `/events/${eventId}/complete`
+        `/api/events/${eventId}/complete`
       );
-      
+
       if (response.data.success && response.data.data) {
         return response.data.data;
       }
-      
+
       throw new Error(ERROR_MESSAGES.EVENT_COMPLETE_ERROR);
     } catch (error) {
       throw new Error(handleApiError(error));

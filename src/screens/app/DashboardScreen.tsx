@@ -44,11 +44,11 @@ const DashboardScreen: React.FC = () => {
       }));
 
       // Cargar eventos próximos
-      const eventsResponse = await calendarService.getUpcomingEvents(5);
-      setUpcomingEvents(eventsResponse.events);
+      const upcomingEvents = await calendarService.getUpcomingEvents(5);
+      setUpcomingEvents(upcomingEvents);
       setStats(prev => ({
         ...prev,
-        upcomingEvents: eventsResponse.events.length,
+        upcomingEvents: upcomingEvents.length,
       }));
     } catch (error) {
       console.error('Error loading dashboard data:', error);

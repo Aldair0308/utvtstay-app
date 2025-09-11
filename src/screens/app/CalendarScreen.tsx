@@ -64,14 +64,15 @@ const CalendarScreen: React.FC = () => {
   const loadCalendarData = async () => {
     try {
       setLoading(true);
-      const response = await calendarService.getEvents({
+      const events = await calendarService.getEvents({
         month: currentDate.getMonth() + 1,
         year: currentDate.getFullYear(),
       });
-      setEvents(response.data.events);
-      generateCalendarDays(response.data.events);
+      setEvents(events);
+      generateCalendarDays(events);
     } catch (error) {
       console.error("Error loading calendar data:", error);
+      Alert.alert('Error', 'No se pudieron cargar los eventos del calendario. Por favor, intenta nuevamente.');
       // En caso de error, mostrar eventos vacíos en lugar de fallar
       setEvents([]);
       generateCalendarDays([]);
