@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,8 @@ import {
   StatusBar,
   BackHandler,
   Dimensions,
+  ScrollView,
+  Keyboard,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -60,10 +62,31 @@ const FileEditScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  
+  // Refs para mantener el foco del WebView
+  const webViewRef = useRef<any>(null);
+  const isUserInteracting = useRef(false);
 
   useEffect(() => {
     loadFileForEdit();
   }, [fileId]);
+
+  // Gestión del teclado
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+      setKeyboardVisible(true);
+    });
+    
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardVisible(false);
+    });
+
+    return () => {
+      keyboardDidShowListener?.remove();
+      keyboardDidHideListener?.remove();
+    };
+  }, []);
 
   useEffect(() => {
     // Configurar el header con botón de guardar
@@ -84,6 +107,151 @@ const FileEditScreen: React.FC = () => {
       ),
     });
   }, [navigation, saving, hasChanges]);
+
+  // Sincronizar cambios de contenido con el WebView via JavaScript injection
+  // Esto evita re-renders del WebView manteniendo el foco y el teclado abierto
+  useEffect(() => {
+    if (webViewRef.current && htmlContent) {
+      // Usar JavaScript injection para actualizar el contenido sin re-render
+      const script = `
+        if (window.updateEditorContent && !window.isUpdatingFromReactNative) {
+          window.updateEditorContent(${JSON.stringify(htmlContent)});
+        }
+        true;
+      `;
+      webViewRef.current.injectJavaScript(script);
+    }
+  }, [htmlContent]);
+
+  // Crear HTML estático para WebView - SIN dependencias para evitar re-renders
+  // El contenido se sincroniza via postMessage, no via re-render del HTML
+  const editableHtml = useMemo(() => {
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <style>
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          margin: 16px;
+          padding: 0;
+          background-color: #ffffff;
+          color: #333333;
+          line-height: 1.6;
+        }
+        .editor {
+          min-height: 400px;
+          border: none;
+          outline: none;
+          font-size: 16px;
+        }
+        .editor:focus {
+          outline: none;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="editor" contenteditable="true" id="editor"></div>
+      <script>
+        const editor = document.getElementById('editor');
+        let lastContent = '';
+        let isUpdatingFromReactNative = false;
+        
+        // Función para actualizar contenido desde React Native
+        window.updateEditorContent = function(content) {
+          if (content !== editor.innerHTML) {
+            isUpdatingFromReactNative = true;
+            const selection = window.getSelection();
+            const range = selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+            const startOffset = range ? range.startOffset : 0;
+            const endOffset = range ? range.endOffset : 0;
+            
+            editor.innerHTML = content;
+            lastContent = content;
+            
+            // Restaurar la selección/cursor
+            try {
+              if (range && editor.firstChild) {
+                const newRange = document.createRange();
+                const textNode = editor.firstChild.nodeType === Node.TEXT_NODE 
+                  ? editor.firstChild 
+                  : editor.firstChild.firstChild || editor.firstChild;
+                
+                if (textNode && textNode.nodeType === Node.TEXT_NODE) {
+                  const maxOffset = Math.min(startOffset, textNode.textContent.length);
+                  newRange.setStart(textNode, maxOffset);
+                  newRange.setEnd(textNode, Math.min(endOffset, textNode.textContent.length));
+                  selection.removeAllRanges();
+                  selection.addRange(newRange);
+                }
+              }
+            } catch (e) {
+              // Si falla la restauración del cursor, mantener el foco
+              editor.focus();
+            }
+            
+            setTimeout(() => {
+              isUpdatingFromReactNative = false;
+            }, 50);
+          }
+        };
+        
+        // Debounce para evitar actualizaciones excesivas
+        let updateTimeout;
+        editor.addEventListener('input', function() {
+          if (isUpdatingFromReactNative) return;
+          
+          clearTimeout(updateTimeout);
+          updateTimeout = setTimeout(() => {
+            const currentContent = editor.innerHTML;
+            if (currentContent !== lastContent) {
+              lastContent = currentContent;
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'contentChanged',
+                content: currentContent
+              }));
+            }
+          }, 100); // Debounce de 100ms
+        });
+        
+        // Mantener el foco en el editor
+        editor.addEventListener('focus', function() {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'editorFocused'
+          }));
+        });
+        
+        editor.addEventListener('blur', function() {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'editorBlurred'
+          }));
+        });
+        
+        // Listener para mensajes desde React Native
+        window.addEventListener('message', function(event) {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'updateContent') {
+              window.updateEditorContent(data.content);
+            } else if (data.type === 'focus') {
+              editor.focus();
+            }
+          } catch (e) {
+            console.error('Error parsing message:', e);
+          }
+        });
+        
+        // Notificar que el editor está listo
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'editorReady'
+        }));
+      </script>
+    </body>
+    </html>
+  `;
+  }, []); // SIN dependencias - HTML completamente estático
 
   const verifyUserPermissions = async () => {
     try {
@@ -268,22 +436,65 @@ const FileEditScreen: React.FC = () => {
     }
   };
 
-  const handleContentChange = (content: string) => {
-    setHtmlContent(content);
-    if (!hasChanges) {
-      setHasChanges(true);
-    }
-  };
+
 
   const onWebViewMessage = (event: any) => {
     try {
-      const data = JSON.parse(event.nativeEvent.data);
-      if (data.type === 'contentChanged') {
-        handleContentChange(data.content);
+      const message = JSON.parse(event.nativeEvent.data);
+      
+      if (message.type === 'contentChanged') {
+        const newContent = message.content;
+        if (newContent !== htmlContent) {
+          setHtmlContent(newContent);
+          setHasChanges(true);
+        }
+      } else if (message.type === 'editorReady') {
+        // El editor está listo, enviar el contenido inicial
+        if (htmlContent && webViewRef.current) {
+          const script = `window.updateEditorContent(${JSON.stringify(htmlContent)}); true;`;
+          webViewRef.current.injectJavaScript(script);
+        }
+        // Auto-focus después de cargar el contenido
+        setTimeout(() => {
+          if (webViewRef.current) {
+            webViewRef.current.injectJavaScript('document.getElementById("editor").focus(); true;');
+          }
+        }, 200);
+      } else if (message.type === 'editorFocused') {
+        isUserInteracting.current = true;
+        // Mantener el teclado abierto cuando el editor tiene foco
+        if (!keyboardVisible) {
+          // Forzar que el teclado permanezca visible
+          webViewRef.current?.requestFocus();
+        }
+      } else if (message.type === 'editorBlurred') {
+        // Solo permitir que el teclado se cierre si el usuario no está interactuando
+        setTimeout(() => {
+          if (!isUserInteracting.current) {
+            // El usuario ha dejado de interactuar, permitir que el teclado se cierre
+          }
+        }, 100);
       }
     } catch (error) {
-      console.error('Error parsing WebView message:', error);
+      console.error('[FileEditScreen] Error parsing WebView message:', error);
     }
+  };
+  
+  // Función para mantener el foco del WebView
+  const maintainWebViewFocus = () => {
+    if (webViewRef.current && keyboardVisible) {
+      webViewRef.current.requestFocus();
+    }
+  };
+  
+  // Función para manejar toques en el contenedor
+  const handleContainerPress = () => {
+    isUserInteracting.current = true;
+    maintainWebViewFocus();
+    // Reset después de un tiempo
+    setTimeout(() => {
+      isUserInteracting.current = false;
+    }, 1000);
   };
 
   const navigateToHistory = () => {
@@ -349,65 +560,18 @@ const FileEditScreen: React.FC = () => {
   }
 
   const screenHeight = Dimensions.get('window').height;
-  
-  // Crear HTML editable para WebView
-  const editableHtml = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <style>
-        body {
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          margin: 16px;
-          padding: 0;
-          background-color: #ffffff;
-          color: #333333;
-          line-height: 1.6;
-        }
-        .editor {
-          min-height: 400px;
-          border: none;
-          outline: none;
-          font-size: 16px;
-        }
-        .editor:focus {
-          outline: none;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="editor" contenteditable="true" id="editor">${htmlContent}</div>
-      <script>
-        const editor = document.getElementById('editor');
-        let lastContent = editor.innerHTML;
-        
-        editor.addEventListener('input', function() {
-          const currentContent = editor.innerHTML;
-          if (currentContent !== lastContent) {
-            lastContent = currentContent;
-            window.ReactNativeWebView.postMessage(JSON.stringify({
-              type: 'contentChanged',
-              content: currentContent
-            }));
-          }
-        });
-        
-        // Enviar contenido inicial
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'contentChanged',
-          content: editor.innerHTML
-        }));
-      </script>
-    </body>
-    </html>
-  `;
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
+      <ScrollView 
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="always"
+        keyboardDismissMode="none"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={handleDiscard}
@@ -434,25 +598,35 @@ const FileEditScreen: React.FC = () => {
         <Text style={styles.fileInfoText}>Tamaño: {(editorData.file.size / 1024).toFixed(1)} KB</Text>
       </View>
 
-      {/* WebView Editor */}
-      <View style={[styles.webViewContainer, { height: screenHeight - 200 }]}>
-        <WebView
-          source={{ html: editableHtml }}
-          style={styles.webView}
-          onMessage={onWebViewMessage}
-          scalesPageToFit={false}
-          startInLoadingState={true}
-          renderLoading={() => (
-            <View style={styles.webViewLoading}>
-              <ActivityIndicator size="large" color={theme.colors.primary} />
-              <Text style={styles.loadingText}>Cargando editor...</Text>
-            </View>
-          )}
-        />
-      </View>
+        {/* WebView Editor */}
+        <TouchableOpacity 
+          style={[styles.webViewContainer, { height: screenHeight - 200 }]}
+          activeOpacity={1}
+          onPress={handleContainerPress}
+        >
+          <WebView
+            ref={webViewRef}
+            key="stable-editor-webview"
+            source={{ html: editableHtml }}
+            style={styles.webView}
+            onMessage={onWebViewMessage}
+            scalesPageToFit={false}
+            startInLoadingState={true}
+            keyboardDisplayRequiresUserAction={false}
+            hideKeyboardAccessoryView={false}
+            allowsInlineMediaPlayback={true}
+            mediaPlaybackRequiresUserAction={false}
+            renderLoading={() => (
+              <View style={styles.webViewLoading}>
+                <ActivityIndicator size="large" color={theme.colors.primary} />
+                <Text style={styles.loadingText}>Cargando editor...</Text>
+              </View>
+            )}
+          />
+        </TouchableOpacity>
 
-      {/* Action Buttons */}
-      <View style={styles.actionButtons}>
+        {/* Action Buttons */}
+        <View style={styles.actionButtons}>
         <TouchableOpacity
           style={styles.discardButton}
           onPress={handleDiscard}
@@ -471,7 +645,8 @@ const FileEditScreen: React.FC = () => {
             <Text style={styles.saveButtonText}>Guardar</Text>
           )}
         </TouchableOpacity>
-      </View>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -480,6 +655,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   loadingContainer: {
     flex: 1,
