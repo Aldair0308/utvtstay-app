@@ -26,6 +26,7 @@ const FileDetailScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [file, setFile] = useState<File | null>(null);
   const [fileContent, setFileContent] = useState<string>('');
+  const [currentContent, setCurrentContent] = useState<string>('');
 
   useEffect(() => {
     loadFileDetail();
@@ -36,10 +37,50 @@ const FileDetailScreen: React.FC = () => {
       const fileData = await filesService.getFileById(fileId);
       setFile(fileData);
       
-      // Si es un archivo de texto, cargar el contenido
+      // Si es un archivo de texto, cargar el contenido actual
       if (fileData.mimeType.includes('text') || fileData.mimeType.includes('json')) {
-        // En una implementación real, aquí cargarías el contenido del archivo
-        setFileContent('Contenido del archivo se mostraría aquí...');
+        try {
+          // Usar la misma lógica que FileHistoryScreen para obtener la versión actual
+          const fileHistory = await filesService.getFileHistory(fileId);
+          
+          let content = '';
+          if (fileHistory && fileHistory.length > 0) {
+            // Mapear y ordenar igual que en FileHistoryScreen
+            const mappedHistory = fileHistory.map((item, index) => ({
+              id: item.id.toString(),
+              version: item.version,
+              isCurrentVersion: index === 0 // La primera versión es la más reciente
+            }));
+            
+            // Ordenar por versión descendente (más reciente primero)
+            const sortedHistory = mappedHistory.sort((a, b) => b.version - a.version);
+            
+            // Encontrar la versión actual (la primera después del ordenamiento)
+            const currentVersion = sortedHistory[0];
+            
+            // Usar la misma lógica que FileContentViewer para obtener el contenido
+            if (currentVersion.version === 1) {
+              // Si es la versión 1, usar fileId para obtener el contenido del archivo original
+              const contentData = await filesService.getFileContent(fileId);
+              content = contentData.content || '';
+            } else {
+              // Si es otra versión, usar changeId para obtener el contenido del cambio
+              const contentData = await filesService.getFileChangeContent(currentVersion.id);
+              content = contentData.content || '';
+            }
+          } else {
+            // Si no hay historial, usar getFileContent como fallback
+            const contentData = await filesService.getFileContent(fileId);
+            content = contentData.content || '';
+          }
+          
+          setCurrentContent(content);
+          setFileContent(content.substring(0, 500) + (content.length > 500 ? '...' : ''));
+        } catch (contentError) {
+          console.error('Error loading file content:', contentError);
+          setFileContent('No se pudo cargar el contenido del archivo');
+          setCurrentContent('');
+        }
       }
     } catch (error) {
       console.error('Error loading file detail:', error);
@@ -52,7 +93,11 @@ const FileDetailScreen: React.FC = () => {
 
   const handleEdit = () => {
     if (file) {
-      navigation.navigate('FileEdit', { fileId: file.id });
+      // Pasar tanto el fileId como el contenido actual al editor
+      navigation.navigate('FileEdit', { 
+        fileId: file.id,
+        initialContent: currentContent // Contenido de la versión más reciente
+      });
     }
   };
 

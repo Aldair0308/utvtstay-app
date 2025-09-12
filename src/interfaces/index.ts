@@ -31,7 +31,7 @@ export type AppStackParamList = {
   Files: undefined;
   FileDetail: { fileId: string };
   FileHistory: { fileId: string };
-  FileEdit: { fileId: string };
+  FileEdit: { fileId: string; initialContent?: string };
   FileContentViewer: {
     fileId?: string;
     changeId?: string;

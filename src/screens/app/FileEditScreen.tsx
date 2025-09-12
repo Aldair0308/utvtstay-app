@@ -29,7 +29,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { theme } from "../../theme";
 
 type AppStackParamList = {
-  FileEdit: { fileId: number };
+  FileEdit: { fileId: number; initialContent?: string };
   FileHistory: { fileId: number; fileName: string };
 };
 
@@ -64,7 +64,7 @@ interface EditorContent {
 const FileEditScreen: React.FC = () => {
   const navigation = useNavigation<FileEditNavigationProp>();
   const route = useRoute<FileEditRouteProp>();
-  const { fileId } = route.params;
+  const { fileId, initialContent } = route.params;
 
   const [editorData, setEditorData] = useState<EditorContent | null>(null);
   const [htmlContent, setHtmlContent] = useState("");
@@ -405,11 +405,47 @@ const FileEditScreen: React.FC = () => {
     try {
       console.log("[FileEditScreen] Iniciando carga de archivo para edición:", {
         fileId: fileId.toString(),
+        hasInitialContent: !!initialContent,
         timestamp: new Date().toISOString(),
       });
 
       setLoading(true);
 
+      // Si tenemos contenido inicial, usarlo directamente
+      if (initialContent) {
+        console.log("[FileEditScreen] Usando contenido inicial proporcionado:", {
+          contentLength: initialContent.length,
+        });
+
+        // Crear estructura compatible con el componente existente
+        const editorContent: EditorContent = {
+          file: {
+            id: fileId,
+            name: "Archivo",
+            type: "text/html",
+            size: initialContent.length,
+            is_word: false,
+            is_excel: false,
+            is_pdf: false,
+            editable: true,
+          },
+          content: {
+            type: "text/html",
+            data: initialContent,
+            editable: true,
+          },
+          version: 1,
+          total_versions: 1,
+          last_modified: new Date().toISOString(),
+        };
+
+        setEditorData(editorContent);
+        setHtmlContent(initialContent);
+        setHasChanges(false);
+        return;
+      }
+
+      // Si no hay contenido inicial, cargar desde el servidor usando la misma lógica que FileDetailScreen
       // Verificar permisos del usuario antes de proceder
       const { user, token } = await verifyUserPermissions();
 
@@ -418,21 +454,66 @@ const FileEditScreen: React.FC = () => {
         token ? `${token.substring(0, 20)}...` : "No token"
       );
 
-      // Usar getFileContent en lugar de getEditorContent
-      const fileContent = await filesService.getFileContent(fileId.toString());
+      // Usar la misma lógica que FileDetailScreen para obtener la versión actual
+      let content = '';
+      let mimeType = 'text/html';
+      
+      try {
+        const fileHistory = await filesService.getFileHistory(fileId);
+        
+        if (fileHistory && fileHistory.length > 0) {
+          // Mapear y ordenar igual que en FileDetailScreen
+          const mappedHistory = fileHistory.map((item, index) => ({
+            id: item.id.toString(),
+            version: item.version,
+            isCurrentVersion: index === 0 // La primera versión es la más reciente
+          }));
+          
+          // Ordenar por versión descendente (más reciente primero)
+          const sortedHistory = mappedHistory.sort((a, b) => b.version - a.version);
+          
+          // Encontrar la versión actual (la primera después del ordenamiento)
+          const currentVersion = sortedHistory[0];
+          
+          console.log("[FileEditScreen] Versión actual encontrada:", {
+            version: currentVersion.version,
+            id: currentVersion.id
+          });
+          
+          // Usar la misma lógica que FileContentViewer para obtener el contenido
+          if (currentVersion.version === 1) {
+            // Si es la versión 1, usar fileId para obtener el contenido del archivo original
+            const contentData = await filesService.getFileContent(fileId.toString());
+            content = contentData?.html || contentData?.content || '';
+            mimeType = contentData?.mimeType || 'text/html';
+          } else {
+            // Si es otra versión, usar changeId para obtener el contenido del cambio
+            const contentData = await filesService.getFileChangeContent(currentVersion.id);
+            content = contentData?.html || contentData?.content || '';
+            mimeType = contentData?.mimeType || 'text/html';
+          }
+        } else {
+          // Si no hay historial, usar getFileContent como fallback
+          const contentData = await filesService.getFileContent(fileId.toString());
+          content = contentData?.html || contentData?.content || '';
+          mimeType = contentData?.mimeType || 'text/html';
+        }
+      } catch (historyError) {
+        console.warn("[FileEditScreen] Error obteniendo historial, usando fallback:", historyError);
+        // Fallback: usar getFileContent
+        const contentData = await filesService.getFileContent(fileId.toString());
+        content = contentData?.html || contentData?.content || '';
+        mimeType = contentData?.mimeType || 'text/html';
+      }
 
       console.log("[FileEditScreen] Contenido cargado exitosamente:", {
-        contentLength: fileContent?.content?.length || 0,
-        mimeType: fileContent?.mimeType,
-        hasHtml: !!fileContent?.html,
-        hasContent: !!fileContent,
+        contentLength: content?.length || 0,
+        mimeType: mimeType,
+        hasContent: !!content,
       });
 
-      // Verificar si el archivo tiene contenido editable (HTML o texto)
-      const hasEditableContent = !!(fileContent?.html || fileContent?.content);
-      const mimeType = fileContent?.mimeType || "";
-
-      if (!hasEditableContent) {
+      // Verificar si el archivo tiene contenido editable
+      if (!content) {
         Alert.alert(
           "Archivo sin contenido",
           "Este archivo no tiene contenido disponible para editar.",
@@ -455,7 +536,7 @@ const FileEditScreen: React.FC = () => {
         },
         content: {
           type: mimeType,
-          data: fileContent?.html || fileContent?.content || "",
+          data: content,
           editable: true,
         },
         version: 1,
@@ -464,7 +545,7 @@ const FileEditScreen: React.FC = () => {
       };
 
       setEditorData(editorContent);
-      setHtmlContent(fileContent?.html || fileContent?.content || "");
+      setHtmlContent(content);
 
       // Reset changes flag
       setHasChanges(false);
