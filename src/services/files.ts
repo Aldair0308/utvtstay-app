@@ -349,6 +349,128 @@ export const filesService = {
   },
 
   /**
+   * Obtener contenido del editor para móvil
+   */
+  getEditorContent: async (fileId: string, versionId?: string): Promise<any> => {
+    try {
+      const url = versionId 
+        ? `/files/${fileId}/editor-content?version_id=${versionId}`
+        : `/files/${fileId}/editor-content`;
+      
+      console.log(`[FilesService] Getting editor content for file ${fileId}`, { url, versionId });
+      
+      const response = await apiClient.get<ApiResponse<any>>(url);
+      
+      console.log(`[FilesService] Editor content response:`, {
+        success: response.data.success,
+        hasData: !!response.data.data,
+        status: response.status
+      });
+      
+      if (response.data.success && response.data.data) {
+        return response.data.data;
+      }
+      
+      throw new Error("Error al obtener contenido del editor");
+    } catch (error: any) {
+      console.error(`[FilesService] Error en getEditorContent para archivo ${fileId}:`, {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        url: error.config?.url
+      });
+      
+      if (error.response?.status === 403) {
+        throw new Error("No tienes permisos para editar este archivo. Verifica que tengas los permisos necesarios o contacta al administrador.");
+      }
+      
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  /**
+   * Actualizar contenido para móvil
+   */
+  updateContentMobile: async (fileId: string, content: string, versionMessage?: string): Promise<any> => {
+    try {
+      const payload = {
+        content,
+        version_message: versionMessage || "Actualización desde móvil"
+      };
+      
+      console.log(`[FilesService] Updating content for file ${fileId}:`, {
+        contentLength: content.length,
+        versionMessage: payload.version_message
+      });
+      
+      const response = await apiClient.post<ApiResponse<any>>(`/files/${fileId}/content-mobile`, payload);
+      
+      console.log(`[FilesService] Update content response:`, {
+        success: response.data.success,
+        hasData: !!response.data.data,
+        status: response.status
+      });
+      
+      if (response.data.success) {
+        return response.data.data;
+      }
+      
+      throw new Error("Error al actualizar contenido");
+    } catch (error: any) {
+      console.error(`[FilesService] Error en updateContentMobile para archivo ${fileId}:`, {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        url: error.config?.url
+      });
+      
+      if (error.response?.status === 403) {
+        throw new Error("No tienes permisos para modificar este archivo. Verifica que tengas los permisos de escritura necesarios.");
+      }
+      
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  /**
+   * Obtener versiones de un archivo
+   */
+  getFileVersions: async (fileId: string): Promise<any> => {
+    try {
+      const response = await apiClient.get<ApiResponse<any>>(`/files/${fileId}/versions`);
+      
+      if (response.data.success && response.data.data) {
+        return response.data.data;
+      }
+      
+      throw new Error("Error al obtener versiones del archivo");
+    } catch (error) {
+      console.error("Error en getFileVersions:", error);
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  /**
+   * Editar desde una versión específica
+   */
+  editFromVersion: async (fileId: string, versionId: string, content: string): Promise<any> => {
+    try {
+      const response = await apiClient.post<ApiResponse<any>>(`/files/${fileId}/versions/${versionId}/edit`, {
+        content
+      });
+      
+      if (response.data.success && response.data.data) {
+        return response.data.data;
+      }
+      
+      throw new Error("Error al editar desde versión");
+    } catch (error) {
+      console.error("Error en editFromVersion:", error);
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  /**
    * Obtener contenido de un archivo
    */
   getFileContent: async (
