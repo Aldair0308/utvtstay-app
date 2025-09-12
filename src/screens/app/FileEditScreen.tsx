@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -12,23 +12,32 @@ import {
   Dimensions,
   ScrollView,
   Keyboard,
-} from 'react-native';
-import { WebView } from 'react-native-webview';
-import Icon from 'react-native-vector-icons/MaterialIcons';
-import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute, useFocusEffect, StackNavigationProp, RouteProp } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { filesService } from '../../services/files';
-import { useTheme } from '../../context/ThemeContext';
-import { theme } from '../../theme';
+} from "react-native";
+import { WebView } from "react-native-webview";
+import Icon from "react-native-vector-icons/MaterialIcons";
+import { Ionicons } from "@expo/vector-icons";
+import {
+  useNavigation,
+  useRoute,
+  useFocusEffect,
+  StackNavigationProp,
+  RouteProp,
+} from "@react-navigation/native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { filesService } from "../../services/files";
+import { useTheme } from "../../context/ThemeContext";
+import { theme } from "../../theme";
 
 type AppStackParamList = {
   FileEdit: { fileId: number };
   FileHistory: { fileId: number; fileName: string };
 };
 
-type FileEditNavigationProp = StackNavigationProp<AppStackParamList, 'FileEdit'>;
-type FileEditRouteProp = RouteProp<AppStackParamList, 'FileEdit'>;
+type FileEditNavigationProp = StackNavigationProp<
+  AppStackParamList,
+  "FileEdit"
+>;
+type FileEditRouteProp = RouteProp<AppStackParamList, "FileEdit">;
 
 interface EditorContent {
   file: {
@@ -56,14 +65,14 @@ const FileEditScreen: React.FC = () => {
   const navigation = useNavigation<FileEditNavigationProp>();
   const route = useRoute<FileEditRouteProp>();
   const { fileId } = route.params;
-  
+
   const [editorData, setEditorData] = useState<EditorContent | null>(null);
-  const [htmlContent, setHtmlContent] = useState('');
+  const [htmlContent, setHtmlContent] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
-  
+
   // Refs para mantener el foco del WebView
   const webViewRef = useRef<any>(null);
   const isUserInteracting = useRef(false);
@@ -74,13 +83,19 @@ const FileEditScreen: React.FC = () => {
 
   // Gestión del teclado
   useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
-      setKeyboardVisible(true);
-    });
-    
-    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
-      setKeyboardVisible(false);
-    });
+    const keyboardDidShowListener = Keyboard.addListener(
+      "keyboardDidShow",
+      () => {
+        setKeyboardVisible(true);
+      }
+    );
+
+    const keyboardDidHideListener = Keyboard.addListener(
+      "keyboardDidHide",
+      () => {
+        setKeyboardVisible(false);
+      }
+    );
 
     return () => {
       keyboardDidShowListener?.remove();
@@ -97,11 +112,13 @@ const FileEditScreen: React.FC = () => {
           disabled={saving || !hasChanges}
           style={styles.headerButton}
         >
-          <Text style={[
-            styles.headerButtonText,
-            (!hasChanges || saving) && styles.headerButtonTextDisabled
-          ]}>
-            {saving ? 'Guardando...' : 'Guardar'}
+          <Text
+            style={[
+              styles.headerButtonText,
+              (!hasChanges || saving) && styles.headerButtonTextDisabled,
+            ]}
+          >
+            {saving ? "Guardando..." : "Guardar"}
           </Text>
         </TouchableOpacity>
       ),
@@ -159,42 +176,133 @@ const FileEditScreen: React.FC = () => {
         let lastContent = '';
         let isUpdatingFromReactNative = false;
         
+        // Sistema robusto de preservación del cursor
+        function saveCursorPosition() {
+          const selection = window.getSelection();
+          if (selection.rangeCount === 0) return null;
+          
+          const range = selection.getRangeAt(0);
+          const startContainer = range.startContainer;
+          const startOffset = range.startOffset;
+          const endContainer = range.endContainer;
+          const endOffset = range.endOffset;
+          
+          // Calcular posición absoluta usando TreeWalker
+          function getAbsoluteOffset(container, offset) {
+            const walker = document.createTreeWalker(
+              editor,
+              NodeFilter.SHOW_TEXT,
+              null,
+              false
+            );
+            
+            let absoluteOffset = 0;
+            let currentNode;
+            
+            while (currentNode = walker.nextNode()) {
+              if (currentNode === container) {
+                return absoluteOffset + offset;
+              }
+              absoluteOffset += currentNode.textContent.length;
+            }
+            
+            return absoluteOffset;
+          }
+          
+          return {
+            startOffset: getAbsoluteOffset(startContainer, startOffset),
+            endOffset: getAbsoluteOffset(endContainer, endOffset),
+            isCollapsed: range.collapsed
+          };
+        }
+        
+        function restoreCursorPosition(savedPosition) {
+          if (!savedPosition) {
+            editor.focus();
+            return;
+          }
+          
+          try {
+            const walker = document.createTreeWalker(
+              editor,
+              NodeFilter.SHOW_TEXT,
+              null,
+              false
+            );
+            
+            let currentOffset = 0;
+            let startNode = null;
+            let startOffset = 0;
+            let endNode = null;
+            let endOffset = 0;
+            let currentNode;
+            
+            // Encontrar nodos para start y end
+            while (currentNode = walker.nextNode()) {
+              const nodeLength = currentNode.textContent.length;
+              
+              // Encontrar posición de inicio
+              if (!startNode && currentOffset + nodeLength >= savedPosition.startOffset) {
+                startNode = currentNode;
+                startOffset = savedPosition.startOffset - currentOffset;
+              }
+              
+              // Encontrar posición de fin
+              if (!endNode && currentOffset + nodeLength >= savedPosition.endOffset) {
+                endNode = currentNode;
+                endOffset = savedPosition.endOffset - currentOffset;
+                break;
+              }
+              
+              currentOffset += nodeLength;
+            }
+            
+            // Crear y aplicar el rango
+            if (startNode) {
+              const range = document.createRange();
+              const selection = window.getSelection();
+              
+              // Validar offsets
+              startOffset = Math.min(startOffset, startNode.textContent.length);
+              endOffset = endNode ? Math.min(endOffset, endNode.textContent.length) : startOffset;
+              
+              range.setStart(startNode, startOffset);
+              range.setEnd(endNode || startNode, endOffset);
+              
+              selection.removeAllRanges();
+              selection.addRange(range);
+            } else {
+              // Fallback: posicionar al final del contenido
+              const range = document.createRange();
+              const selection = window.getSelection();
+              range.selectNodeContents(editor);
+              range.collapse(false);
+              selection.removeAllRanges();
+              selection.addRange(range);
+            }
+          } catch (e) {
+            console.error('Error restoring cursor:', e);
+            editor.focus();
+          }
+        }
+        
         // Función para actualizar contenido desde React Native
         window.updateEditorContent = function(content) {
           if (content !== editor.innerHTML) {
             isUpdatingFromReactNative = true;
-            const selection = window.getSelection();
-            const range = selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
-            const startOffset = range ? range.startOffset : 0;
-            const endOffset = range ? range.endOffset : 0;
             
+            // Guardar posición del cursor antes de actualizar
+            const savedPosition = saveCursorPosition();
+            
+            // Actualizar contenido
             editor.innerHTML = content;
             lastContent = content;
             
-            // Restaurar la selección/cursor
-            try {
-              if (range && editor.firstChild) {
-                const newRange = document.createRange();
-                const textNode = editor.firstChild.nodeType === Node.TEXT_NODE 
-                  ? editor.firstChild 
-                  : editor.firstChild.firstChild || editor.firstChild;
-                
-                if (textNode && textNode.nodeType === Node.TEXT_NODE) {
-                  const maxOffset = Math.min(startOffset, textNode.textContent.length);
-                  newRange.setStart(textNode, maxOffset);
-                  newRange.setEnd(textNode, Math.min(endOffset, textNode.textContent.length));
-                  selection.removeAllRanges();
-                  selection.addRange(newRange);
-                }
-              }
-            } catch (e) {
-              // Si falla la restauración del cursor, mantener el foco
-              editor.focus();
-            }
-            
+            // Restaurar posición del cursor
             setTimeout(() => {
+              restoreCursorPosition(savedPosition);
               isUpdatingFromReactNative = false;
-            }, 50);
+            }, 10);
           }
         };
         
@@ -257,24 +365,28 @@ const FileEditScreen: React.FC = () => {
     try {
       const token = await AsyncStorage.getItem("userToken");
       const userData = await AsyncStorage.getItem("userData");
-      
+
       if (!token) {
         console.error("[FileEditScreen] No hay token de autenticación");
-        throw new Error("No estás autenticado. Por favor, inicia sesión nuevamente.");
+        throw new Error(
+          "No estás autenticado. Por favor, inicia sesión nuevamente."
+        );
       }
-      
+
       if (!userData) {
         console.error("[FileEditScreen] No hay datos de usuario");
-        throw new Error("No se encontraron datos de usuario. Por favor, inicia sesión nuevamente.");
+        throw new Error(
+          "No se encontraron datos de usuario. Por favor, inicia sesión nuevamente."
+        );
       }
-      
+
       const user = JSON.parse(userData);
       console.log("[FileEditScreen] Usuario verificado:", {
         userId: user.id,
         role: user.role,
-        hasToken: !!token
+        hasToken: !!token,
       });
-      
+
       return { user, token };
     } catch (error: any) {
       console.error("[FileEditScreen] Error verificando permisos:", error);
@@ -285,7 +397,7 @@ const FileEditScreen: React.FC = () => {
   const loadFileForEdit = async () => {
     if (!fileId) {
       console.error("[FileEditScreen] ID de archivo no válido:", fileId);
-      Alert.alert('Error', 'ID de archivo no válido');
+      Alert.alert("Error", "ID de archivo no válido");
       setLoading(false);
       return;
     }
@@ -293,82 +405,85 @@ const FileEditScreen: React.FC = () => {
     try {
       console.log("[FileEditScreen] Iniciando carga de archivo para edición:", {
         fileId: fileId.toString(),
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
-      
+
       setLoading(true);
-      
+
       // Verificar permisos del usuario antes de proceder
       const { user, token } = await verifyUserPermissions();
-      
-      console.log("[FileEditScreen] Token disponible:", token ? `${token.substring(0, 20)}...` : "No token");
-      
+
+      console.log(
+        "[FileEditScreen] Token disponible:",
+        token ? `${token.substring(0, 20)}...` : "No token"
+      );
+
       // Usar getFileContent en lugar de getEditorContent
       const fileContent = await filesService.getFileContent(fileId.toString());
-      
+
       console.log("[FileEditScreen] Contenido cargado exitosamente:", {
         contentLength: fileContent?.content?.length || 0,
         mimeType: fileContent?.mimeType,
         hasHtml: !!fileContent?.html,
-        hasContent: !!fileContent
+        hasContent: !!fileContent,
       });
-      
+
       // Verificar si el archivo tiene contenido editable (HTML o texto)
       const hasEditableContent = !!(fileContent?.html || fileContent?.content);
-      const mimeType = fileContent?.mimeType || '';
-      
+      const mimeType = fileContent?.mimeType || "";
+
       if (!hasEditableContent) {
         Alert.alert(
-          'Archivo sin contenido',
-          'Este archivo no tiene contenido disponible para editar.',
-          [{ text: 'OK', onPress: () => navigation.goBack() }]
+          "Archivo sin contenido",
+          "Este archivo no tiene contenido disponible para editar.",
+          [{ text: "OK", onPress: () => navigation.goBack() }]
         );
         return;
       }
-      
+
       // Crear estructura compatible con el componente existente
       const editorContent: EditorContent = {
         file: {
           id: fileId,
-          name: 'Archivo', // Se puede obtener del contexto si está disponible
+          name: "Archivo", // Se puede obtener del contexto si está disponible
           type: mimeType,
           size: 0,
           is_word: false,
           is_excel: false,
           is_pdf: false,
-          editable: true
+          editable: true,
         },
         content: {
           type: mimeType,
-          data: fileContent?.html || fileContent?.content || '',
-          editable: true
+          data: fileContent?.html || fileContent?.content || "",
+          editable: true,
         },
         version: 1,
         total_versions: 1,
-        last_modified: new Date().toISOString()
+        last_modified: new Date().toISOString(),
       };
-      
+
       setEditorData(editorContent);
-      setHtmlContent(fileContent?.html || fileContent?.content || '');
-      
+      setHtmlContent(fileContent?.html || fileContent?.content || "");
+
       // Reset changes flag
       setHasChanges(false);
     } catch (error: any) {
-      console.error('[FileEditScreen] Error loading file for edit:', {
+      console.error("[FileEditScreen] Error loading file for edit:", {
         fileId: fileId.toString(),
         error: error.message,
         status: error.response?.status,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
-      
-      let errorMessage = 'No se pudo cargar el archivo para editar';
-      if (error.message.includes('403') || error.message.includes('permisos')) {
-        errorMessage = 'No tienes permisos para editar este archivo';
-      } else if (error.message.includes('404')) {
-        errorMessage = 'El archivo no fue encontrado';
+
+      let errorMessage = "No se pudo cargar el archivo para editar";
+      if (error.message.includes("403") || error.message.includes("permisos")) {
+        errorMessage = "No tienes permisos para editar este archivo";
+      } else if (error.message.includes("404")) {
+        errorMessage = "El archivo no fue encontrado";
       }
-      
-      Alert.alert('Error', errorMessage);
+
+      Alert.alert("Error", errorMessage);
       navigation.goBack();
     } finally {
       setLoading(false);
@@ -380,7 +495,7 @@ const FileEditScreen: React.FC = () => {
       console.log("[FileEditScreen] Save skipped:", {
         fileId: !!fileId,
         hasChanges,
-        reason: !fileId ? "No fileId" : "No changes"
+        reason: !fileId ? "No fileId" : "No changes",
       });
       return;
     }
@@ -389,33 +504,36 @@ const FileEditScreen: React.FC = () => {
       console.log("[FileEditScreen] Iniciando guardado:", {
         fileId: fileId.toString(),
         contentLength: htmlContent?.length || 0,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
-      
+
       setSaving(true);
-      
+
       // Verificar token antes de guardar
       const token = await AsyncStorage.getItem("userToken");
-      console.log("[FileEditScreen] Token para guardado:", token ? `${token.substring(0, 20)}...` : "No token");
-      
+      console.log(
+        "[FileEditScreen] Token para guardado:",
+        token ? `${token.substring(0, 20)}...` : "No token"
+      );
+
       await filesService.updateContentMobile(
         fileId.toString(),
         htmlContent,
-        'Actualización desde móvil'
+        "Actualización desde móvil"
       );
-      
+
       console.log("[FileEditScreen] Archivo guardado exitosamente");
-      
+
       setHasChanges(false);
-      Alert.alert('Éxito', 'Archivo guardado correctamente');
+      Alert.alert("Éxito", "Archivo guardado correctamente");
     } catch (error: any) {
-      console.error('[FileEditScreen] Error saving file:', {
+      console.error("[FileEditScreen] Error saving file:", {
         fileId: fileId.toString(),
         error: error.message,
         status: error.response?.status,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
-      Alert.alert('Error', error.message || 'No se pudo guardar el archivo');
+      Alert.alert("Error", error.message || "No se pudo guardar el archivo");
     } finally {
       setSaving(false);
     }
@@ -424,11 +542,15 @@ const FileEditScreen: React.FC = () => {
   const handleDiscard = () => {
     if (hasChanges) {
       Alert.alert(
-        'Descartar Cambios',
-        '¿Estás seguro que deseas descartar los cambios?',
+        "Descartar Cambios",
+        "¿Estás seguro que deseas descartar los cambios?",
         [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Descartar', onPress: () => navigation.goBack(), style: 'destructive' },
+          { text: "Cancelar", style: "cancel" },
+          {
+            text: "Descartar",
+            onPress: () => navigation.goBack(),
+            style: "destructive",
+          },
         ]
       );
     } else {
@@ -436,38 +558,40 @@ const FileEditScreen: React.FC = () => {
     }
   };
 
-
-
   const onWebViewMessage = (event: any) => {
     try {
       const message = JSON.parse(event.nativeEvent.data);
-      
-      if (message.type === 'contentChanged') {
+
+      if (message.type === "contentChanged") {
         const newContent = message.content;
         if (newContent !== htmlContent) {
           setHtmlContent(newContent);
           setHasChanges(true);
         }
-      } else if (message.type === 'editorReady') {
+      } else if (message.type === "editorReady") {
         // El editor está listo, enviar el contenido inicial
         if (htmlContent && webViewRef.current) {
-          const script = `window.updateEditorContent(${JSON.stringify(htmlContent)}); true;`;
+          const script = `window.updateEditorContent(${JSON.stringify(
+            htmlContent
+          )}); true;`;
           webViewRef.current.injectJavaScript(script);
         }
         // Auto-focus después de cargar el contenido
         setTimeout(() => {
           if (webViewRef.current) {
-            webViewRef.current.injectJavaScript('document.getElementById("editor").focus(); true;');
+            webViewRef.current.injectJavaScript(
+              'document.getElementById("editor").focus(); true;'
+            );
           }
         }, 200);
-      } else if (message.type === 'editorFocused') {
+      } else if (message.type === "editorFocused") {
         isUserInteracting.current = true;
         // Mantener el teclado abierto cuando el editor tiene foco
         if (!keyboardVisible) {
           // Forzar que el teclado permanezca visible
           webViewRef.current?.requestFocus();
         }
-      } else if (message.type === 'editorBlurred') {
+      } else if (message.type === "editorBlurred") {
         // Solo permitir que el teclado se cierre si el usuario no está interactuando
         setTimeout(() => {
           if (!isUserInteracting.current) {
@@ -476,17 +600,17 @@ const FileEditScreen: React.FC = () => {
         }, 100);
       }
     } catch (error) {
-      console.error('[FileEditScreen] Error parsing WebView message:', error);
+      console.error("[FileEditScreen] Error parsing WebView message:", error);
     }
   };
-  
+
   // Función para mantener el foco del WebView
   const maintainWebViewFocus = () => {
     if (webViewRef.current && keyboardVisible) {
       webViewRef.current.requestFocus();
     }
   };
-  
+
   // Función para manejar toques en el contenedor
   const handleContainerPress = () => {
     isUserInteracting.current = true;
@@ -498,9 +622,9 @@ const FileEditScreen: React.FC = () => {
   };
 
   const navigateToHistory = () => {
-    navigation.navigate('FileHistory', { 
-      fileId, 
-      fileName: editorData?.file.name || 'Archivo' 
+    navigation.navigate("FileHistory", {
+      fileId,
+      fileName: editorData?.file.name || "Archivo",
     });
   };
 
@@ -519,7 +643,11 @@ const FileEditScreen: React.FC = () => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
-          <Ionicons name="document-outline" size={64} color={theme.colors.textSecondary} />
+          <Ionicons
+            name="document-outline"
+            size={64}
+            color={theme.colors.textSecondary}
+          />
           <Text style={styles.errorText}>No se pudo cargar el archivo</Text>
           <TouchableOpacity
             style={styles.retryButton}
@@ -544,26 +672,35 @@ const FileEditScreen: React.FC = () => {
             <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
           </TouchableOpacity>
           <View style={styles.headerContent}>
-            <Text style={styles.headerTitle} numberOfLines={1}>{editorData.file.name}</Text>
-            <Text style={styles.versionBadge}>Versión {editorData.version}</Text>
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {editorData.file.name}
+            </Text>
+            <Text style={styles.versionBadge}>
+              Versión {editorData.version}
+            </Text>
           </View>
         </View>
         <View style={styles.nonEditableContainer}>
-          <Ionicons name="lock-closed-outline" size={64} color={theme.colors.textSecondary} />
+          <Ionicons
+            name="lock-closed-outline"
+            size={64}
+            color={theme.colors.textSecondary}
+          />
           <Text style={styles.nonEditableTitle}>Archivo no editable</Text>
           <Text style={styles.nonEditableSubtitle}>
-            {editorData.content.message || 'Este tipo de archivo no se puede editar desde la aplicación móvil.'}
+            {editorData.content.message ||
+              "Este tipo de archivo no se puede editar desde la aplicación móvil."}
           </Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  const screenHeight = Dimensions.get('window').height;
+  const screenHeight = Dimensions.get("window").height;
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView 
+      <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="always"
@@ -572,35 +709,38 @@ const FileEditScreen: React.FC = () => {
       >
         {/* Header */}
         <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={handleDiscard}
-        >
-          <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
-        </TouchableOpacity>
-        
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle} numberOfLines={1}>{editorData.file.name}</Text>
-          <Text style={styles.versionBadge}>Versión {editorData.version} de {editorData.total_versions}</Text>
-        </View>
-        
-        <TouchableOpacity
-          style={styles.historyButton}
-          onPress={navigateToHistory}
-        >
-          <Ionicons name="time-outline" size={24} color={theme.colors.text} />
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity style={styles.backButton} onPress={handleDiscard}>
+            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+          </TouchableOpacity>
 
-      {/* File Info */}
-      <View style={styles.fileInfo}>
-        <Text style={styles.fileInfoText}>Tipo: {editorData.file.type}</Text>
-        <Text style={styles.fileInfoText}>Tamaño: {(editorData.file.size / 1024).toFixed(1)} KB</Text>
-      </View>
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {editorData.file.name}
+            </Text>
+            <Text style={styles.versionBadge}>
+              Versión {editorData.version} de {editorData.total_versions}
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.historyButton}
+            onPress={navigateToHistory}
+          >
+            <Ionicons name="time-outline" size={24} color={theme.colors.text} />
+          </TouchableOpacity>
+        </View>
+
+        {/* File Info */}
+        <View style={styles.fileInfo}>
+          <Text style={styles.fileInfoText}>Tipo: {editorData.file.type}</Text>
+          <Text style={styles.fileInfoText}>
+            Tamaño: {(editorData.file.size / 1024).toFixed(1)} KB
+          </Text>
+        </View>
 
         {/* WebView Editor */}
-        <TouchableOpacity 
-          style={[styles.webViewContainer, { height: screenHeight - 200 }]}
+        <TouchableOpacity
+          style={styles.webViewContainer}
           activeOpacity={1}
           onPress={handleContainerPress}
         >
@@ -616,6 +756,8 @@ const FileEditScreen: React.FC = () => {
             hideKeyboardAccessoryView={false}
             allowsInlineMediaPlayback={true}
             mediaPlaybackRequiresUserAction={false}
+            scrollEnabled={true}
+            nestedScrollEnabled={true}
             renderLoading={() => (
               <View style={styles.webViewLoading}>
                 <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -627,24 +769,27 @@ const FileEditScreen: React.FC = () => {
 
         {/* Action Buttons */}
         <View style={styles.actionButtons}>
-        <TouchableOpacity
-          style={styles.discardButton}
-          onPress={handleDiscard}
-        >
-          <Text style={styles.discardButtonText}>Descartar</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={[styles.saveButton, (!hasChanges || saving) && styles.saveButtonDisabled]}
-          onPress={handleSave}
-          disabled={!hasChanges || saving}
-        >
-          {saving ? (
-            <ActivityIndicator size="small" color={theme.colors.background} />
-          ) : (
-            <Text style={styles.saveButtonText}>Guardar</Text>
-          )}
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.discardButton}
+            onPress={handleDiscard}
+          >
+            <Text style={styles.discardButtonText}>Descartar</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.saveButton,
+              (!hasChanges || saving) && styles.saveButtonDisabled,
+            ]}
+            onPress={handleSave}
+            disabled={!hasChanges || saving}
+          >
+            {saving ? (
+              <ActivityIndicator size="small" color={theme.colors.background} />
+            ) : (
+              <Text style={styles.saveButtonText}>Guardar</Text>
+            )}
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -664,8 +809,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingText: {
     marginTop: theme.spacing.md,
@@ -674,14 +819,14 @@ const styles = StyleSheet.create({
   },
   errorContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: theme.spacing.lg,
   },
   errorText: {
     fontSize: 18,
     color: theme.colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: theme.spacing.md,
   },
   retryButton: {
@@ -694,11 +839,11 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: theme.colors.background,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
     borderBottomWidth: 1,
@@ -714,7 +859,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: theme.colors.text,
   },
   versionBadge: {
@@ -727,27 +872,27 @@ const styles = StyleSheet.create({
   },
   nonEditableContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: theme.spacing.lg,
   },
   nonEditableTitle: {
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: "600",
     color: theme.colors.text,
     marginTop: theme.spacing.md,
-    textAlign: 'center',
+    textAlign: "center",
   },
   nonEditableSubtitle: {
     fontSize: 16,
     color: theme.colors.textSecondary,
     marginTop: theme.spacing.sm,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 24,
   },
   fileInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
     backgroundColor: theme.colors.backgroundSecondary,
@@ -759,10 +904,11 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
   },
   webViewContainer: {
-    flex: 1,
+    minHeight: 400,
+    maxHeight: 600,
     margin: theme.spacing.md,
     borderRadius: 8,
-    overflow: 'hidden',
+    overflow: "hidden",
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
@@ -772,12 +918,12 @@ const styles = StyleSheet.create({
   },
   webViewLoading: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     backgroundColor: theme.colors.background,
   },
   actionButtons: {
-    flexDirection: 'row',
+    flexDirection: "row",
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
     paddingBottom: 30, // Espacio adicional para evitar botones de navegación de Android
@@ -797,8 +943,8 @@ const styles = StyleSheet.create({
   discardButtonText: {
     color: theme.colors.text,
     fontSize: 16,
-    fontWeight: '500',
-    textAlign: 'center',
+    fontWeight: "500",
+    textAlign: "center",
   },
   saveButton: {
     flex: 1,
@@ -806,8 +952,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingVertical: theme.spacing.sm,
     marginLeft: theme.spacing.xs,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   saveButtonDisabled: {
     backgroundColor: theme.colors.textTertiary,
@@ -815,7 +961,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     color: theme.colors.background,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   headerButton: {
     paddingHorizontal: theme.spacing.md,
@@ -824,7 +970,7 @@ const styles = StyleSheet.create({
   headerButtonText: {
     fontSize: 16,
     color: theme.colors.primary,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   headerButtonTextDisabled: {
     color: theme.colors.textTertiary,
