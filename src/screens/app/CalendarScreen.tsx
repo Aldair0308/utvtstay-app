@@ -648,6 +648,7 @@ const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
     backgroundColor: theme.colors.background,
+    height: 400,
   },
   modalHeader: {
     flexDirection: "row",
