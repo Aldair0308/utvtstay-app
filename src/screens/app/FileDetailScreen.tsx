@@ -14,6 +14,7 @@ import { AppStackParamList, File } from '../../interfaces';
 import { filesService } from '../../services/files';
 import { theme } from '../../theme';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import { useDateFormatter } from '../../hooks/useDateFormatter';
 
 type FileDetailNavigationProp = StackNavigationProp<AppStackParamList, 'FileDetail'>;
 type FileDetailRouteProp = RouteProp<AppStackParamList, 'FileDetail'>;
@@ -22,6 +23,7 @@ const FileDetailScreen: React.FC = () => {
   const navigation = useNavigation<FileDetailNavigationProp>();
   const route = useRoute<FileDetailRouteProp>();
   const { fileId } = route.params;
+  const { smartFormatDate } = useDateFormatter();
   
   const [loading, setLoading] = useState(true);
   const [file, setFile] = useState<File | null>(null);
@@ -231,21 +233,16 @@ const FileDetailScreen: React.FC = () => {
         </View>
         
         <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Tipo:</Text>
-          <Text style={styles.infoValue}>{file.mimeType}</Text>
-        </View>
-        
-        <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Creado:</Text>
           <Text style={styles.infoValue}>
-            {new Date(file.createdAt).toLocaleString()}
+            {smartFormatDate(file.createdAt)}
           </Text>
         </View>
         
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Modificado:</Text>
           <Text style={styles.infoValue}>
-            {new Date(file.updatedAt).toLocaleString()}
+            {smartFormatDate(file.updatedAt)}
           </Text>
         </View>
         
@@ -279,21 +276,6 @@ const FileDetailScreen: React.FC = () => {
           <Text style={styles.actionIcon}>📋</Text>
           <Text style={styles.actionText}>Ver Historial</Text>
           <Text style={styles.actionChevron}>›</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
-          <Text style={styles.actionIcon}>📤</Text>
-          <Text style={styles.actionText}>Compartir</Text>
-          <Text style={styles.actionChevron}>›</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.actionButton, styles.dangerAction]} 
-          onPress={handleDelete}
-        >
-          <Text style={styles.actionIcon}>🗑️</Text>
-          <Text style={[styles.actionText, styles.dangerText]}>Eliminar Archivo</Text>
-          <Text style={[styles.actionChevron, styles.dangerText]}>›</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
