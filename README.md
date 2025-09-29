@@ -253,6 +253,12 @@ npm install react-native-vector-icons
 npm install @expo/vector-icons
 ```
 
+# Ejecutar servidor local de desarrollo
+
+```bash
+npx expo start --go --clear --android
+```
+
 ### 2. Estructura de Carpetas
 
 ```

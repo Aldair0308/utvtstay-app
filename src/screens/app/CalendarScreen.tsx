@@ -398,23 +398,24 @@ const CalendarScreen: React.FC = () => {
       {/* Event Detail Modal */}
       <Modal
         visible={showEventDetailModal}
-        animationType="slide"
-        presentationStyle="fullScreen"
+        animationType="fade"
+        transparent={true}
         onRequestClose={() => setShowEventDetailModal(false)}
       >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setShowEventDetailModal(false)}>
-              <Text style={styles.modalCancelButton}>Cerrar</Text>
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Detalles del Evento</Text>
-            <View style={{ width: 60 }} />
-          </View>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={() => setShowEventDetailModal(false)}>
+                <Text style={styles.modalCancelButton}>Cerrar</Text>
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>Detalles del Evento</Text>
+              <View style={{ width: 60 }} />
+            </View>
 
-          <ScrollView
-            style={styles.modalContent}
-            contentContainerStyle={{ paddingBottom: 0 }}
-          >
+            <ScrollView
+              style={styles.modalContent}
+              contentContainerStyle={{ paddingBottom: 0 }}
+            >
             {selectedEventDetail && (
               <>
                 <View style={styles.eventDetailHeader}>
@@ -470,7 +471,8 @@ const CalendarScreen: React.FC = () => {
                 )}
               </>
             )}
-          </ScrollView>
+            </ScrollView>
+          </View>
         </View>
       </Modal>
     </View>
@@ -645,10 +647,27 @@ const styles = StyleSheet.create({
     ...theme.typography.styles.bodySmall,
     color: theme.colors.textSecondary,
   },
-  modalContainer: {
+  modalOverlay: {
     flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: theme.spacing.screenPadding,
+  },
+  modalContainer: {
     backgroundColor: theme.colors.background,
-    height: 400,
+    borderRadius: theme.dimensions.borderRadius.lg,
+    maxHeight: '80%',
+    width: '100%',
+    maxWidth: 500,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   modalHeader: {
     flexDirection: "row",
@@ -658,6 +677,8 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.md,
     borderBottomWidth: theme.dimensions.borderWidth.thin,
     borderBottomColor: theme.colors.border,
+    borderTopLeftRadius: theme.dimensions.borderRadius.lg,
+    borderTopRightRadius: theme.dimensions.borderRadius.lg,
   },
   modalCancelButton: {
     ...theme.typography.styles.body,
@@ -672,7 +693,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   modalContent: {
-    flex: 1,
+    maxHeight: 400,
     padding: theme.spacing.screenPadding,
     paddingBottom: theme.spacing.screenPadding,
   },

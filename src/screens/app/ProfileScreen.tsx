@@ -15,7 +15,7 @@ import CustomAlert from '../../components/common/CustomAlert';
 import useAlert from '../../hooks/useAlert';
 
 const ProfileScreen: React.FC = () => {
-  const { user, logout, updateUser } = useAuth();
+  const { user, logout } = useAuth();
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -89,7 +89,7 @@ const ProfileScreen: React.FC = () => {
         <Text style={styles.userName}>{user?.name || 'Usuario'}</Text>
         <Text style={styles.userEmail}>{user?.email}</Text>
         <View style={styles.roleContainer}>
-          <Text style={styles.roleText}>{formatRole(user?.role || 'student')}</Text>
+          <Text style={styles.roleText}>{formatRole(user?.roles?.[0] || 'student')}</Text>
         </View>
       </View>
 
@@ -109,14 +109,7 @@ const ProfileScreen: React.FC = () => {
         
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Rol:</Text>
-          <Text style={styles.infoValue}>{formatRole(user?.role || 'student')}</Text>
-        </View>
-        
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Fecha de Registro:</Text>
-          <Text style={styles.infoValue}>
-            {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'No disponible'}
-          </Text>
+          <Text style={styles.infoValue}>{formatRole(user?.roles?.[0] || 'student')}</Text>
         </View>
       </View>
 
@@ -130,18 +123,6 @@ const ProfileScreen: React.FC = () => {
         >
           <Text style={styles.settingIcon}>🔒</Text>
           <Text style={styles.settingText}>Cambiar Contraseña</Text>
-          <Text style={styles.settingChevron}>›</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.settingItem}>
-          <Text style={styles.settingIcon}>🔔</Text>
-          <Text style={styles.settingText}>Notificaciones</Text>
-          <Text style={styles.settingChevron}>›</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.settingItem}>
-          <Text style={styles.settingIcon}>🌙</Text>
-          <Text style={styles.settingText}>Tema Oscuro</Text>
           <Text style={styles.settingChevron}>›</Text>
         </TouchableOpacity>
       </View>
@@ -312,6 +293,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...theme.typography.styles.h4,
     marginBottom: theme.spacing.md,
+    color: theme.colors.primary, // Agregado para probar hot reload
   },
   infoRow: {
     flexDirection: 'row',
