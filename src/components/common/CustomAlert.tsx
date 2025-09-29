@@ -160,15 +160,18 @@ const styles = StyleSheet.create({
   },
   buttonsContainer: {
     flexDirection: 'row',
-    gap: theme.spacing.md,
+    gap: theme.spacing.sm,
     width: '100%',
+    alignItems: 'stretch',
   },
   button: {
     flex: 1,
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
     borderRadius: theme.dimensions.borderRadius.lg,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
   },
   primaryButton: {
     backgroundColor: theme.colors.primary,
@@ -182,6 +185,8 @@ const styles = StyleSheet.create({
     ...theme.typography.styles.button,
     color: theme.colors.textLight,
     fontWeight: '600',
+    textAlign: 'center',
+    flexWrap: 'nowrap',
   },
   secondaryButtonText: {
     ...theme.typography.styles.button,

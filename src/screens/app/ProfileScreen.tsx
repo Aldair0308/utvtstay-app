@@ -5,64 +5,60 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  TextInput,
-  Modal,
   Image,
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { authService } from '../../services/auth';
 import { theme } from '../../theme';
 import CustomAlert from '../../components/common/CustomAlert';
-import useAlert from '../../hooks/useAlert';
+import ChangePasswordModal from '../../components/common/ChangePasswordModal';
+import { useProfileAlerts } from '../../components/common/ProfileAlerts';
 
 const ProfileScreen: React.FC = () => {
   const { user, logout } = useAuth();
   const [showChangePassword, setShowChangePassword] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { alertState, hideAlert, showError, showSuccess, showConfirm } = useAlert();
+  
+  const {
+    alertState,
+    hideAlert,
+    handleLogout,
+    showPasswordChangeError,
+    showPasswordChangeSuccess,
+    showPasswordChangeValidationError,
+  } = useProfileAlerts(logout);
 
-  const handleChangePassword = async () => {
+  const handleChangePassword = async (currentPassword: string, newPassword: string, confirmPassword: string) => {
     if (!currentPassword || !newPassword || !confirmPassword) {
-      showError('Por favor completa todos los campos');
+      showPasswordChangeValidationError('Por favor completa todos los campos');
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      showError('Las contraseñas no coinciden');
+      showPasswordChangeValidationError('Las contraseñas no coinciden');
       return;
     }
 
     if (newPassword.length < 6) {
-      showError('La nueva contraseña debe tener al menos 6 caracteres');
+      showPasswordChangeValidationError('La nueva contraseña debe tener al menos 6 caracteres');
       return;
     }
 
     setLoading(true);
     try {
       await authService.changePassword(currentPassword, newPassword, confirmPassword);
-      showSuccess('Tu contraseña ha sido actualizada correctamente');
+      showPasswordChangeSuccess();
       setShowChangePassword(false);
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
     } catch (error) {
       console.error('Error changing password:', error);
-      showError('No se pudo cambiar la contraseña. Verifica que tu contraseña actual sea correcta.');
+      showPasswordChangeError('No se pudo cambiar la contraseña. Verifica que tu contraseña actual sea correcta.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLogout = () => {
-    showConfirm(
-      '¿Estás seguro que deseas cerrar sesión?',
-      logout,
-      undefined,
-      'Cerrar Sesión'
-    );
+  const handleLogoutPress = () => {
+    handleLogout();
   };
 
   const formatRole = (role: string) => {
@@ -155,82 +151,18 @@ const ProfileScreen: React.FC = () => {
 
       {/* Logout Button */}
       <View style={styles.logoutSection}>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogoutPress}>
           <Text style={styles.logoutText}>Cerrar Sesión</Text>
         </TouchableOpacity>
       </View>
 
       {/* Change Password Modal */}
-      <Modal
+      <ChangePasswordModal
         visible={showChangePassword}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowChangePassword(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setShowChangePassword(false)}>
-              <Text style={styles.modalCancelText}>Cancelar</Text>
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Cambiar Contraseña</Text>
-            <TouchableOpacity onPress={handleChangePassword} disabled={loading}>
-              <Text style={[
-                styles.modalSaveText,
-                loading && styles.modalSaveTextDisabled
-              ]}>
-                {loading ? 'Guardando...' : 'Guardar'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-          
-          <ScrollView style={styles.modalContent}>
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Contraseña Actual</Text>
-              <TextInput
-                style={styles.input}
-                value={currentPassword}
-                onChangeText={setCurrentPassword}
-                placeholder="Ingresa tu contraseña actual"
-                placeholderTextColor={theme.colors.textTertiary}
-                secureTextEntry
-                autoCapitalize="none"
-              />
-            </View>
-            
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Nueva Contraseña</Text>
-              <TextInput
-                style={styles.input}
-                value={newPassword}
-                onChangeText={setNewPassword}
-                placeholder="Ingresa tu nueva contraseña"
-                placeholderTextColor={theme.colors.textTertiary}
-                secureTextEntry
-                autoCapitalize="none"
-              />
-            </View>
-            
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Confirmar Nueva Contraseña</Text>
-              <TextInput
-                style={styles.input}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                placeholder="Confirma tu nueva contraseña"
-                placeholderTextColor={theme.colors.textTertiary}
-                secureTextEntry
-                autoCapitalize="none"
-              />
-            </View>
-            
-            <View style={styles.passwordRequirements}>
-              <Text style={styles.requirementsTitle}>Requisitos de contraseña:</Text>
-              <Text style={styles.requirementText}>• Mínimo 6 caracteres</Text>
-              <Text style={styles.requirementText}>• Se recomienda usar mayúsculas, minúsculas y números</Text>
-            </View>
-          </ScrollView>
-        </View>
-      </Modal>
+        onClose={() => setShowChangePassword(false)}
+        onChangePassword={handleChangePassword}
+        loading={loading}
+      />
       
       <CustomAlert
         visible={alertState.visible}
@@ -354,63 +286,6 @@ const styles = StyleSheet.create({
   logoutText: {
     ...theme.typography.styles.button,
     color: theme.colors.textLight,
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: theme.spacing.screenPadding,
-    borderBottomWidth: theme.dimensions.borderWidth.thin,
-    borderBottomColor: theme.colors.border,
-  },
-  modalCancelText: {
-    ...theme.typography.styles.body,
-    color: theme.colors.textSecondary,
-  },
-  modalTitle: {
-    ...theme.typography.styles.h4,
-  },
-  modalSaveText: {
-    ...theme.typography.styles.body,
-    color: theme.colors.primary,
-    fontWeight: '600',
-  },
-  modalSaveTextDisabled: {
-    color: theme.colors.textTertiary,
-  },
-  modalContent: {
-    flex: 1,
-    padding: theme.spacing.screenPadding,
-  },
-  inputContainer: {
-    marginBottom: theme.spacing.lg,
-  },
-  inputLabel: {
-    ...theme.typography.styles.label,
-    marginBottom: theme.spacing.sm,
-  },
-  input: {
-    ...theme.components.input,
-  },
-  passwordRequirements: {
-    backgroundColor: theme.colors.backgroundSecondary,
-    padding: theme.spacing.md,
-    borderRadius: theme.dimensions.borderRadius.md,
-    marginTop: theme.spacing.lg,
-  },
-  requirementsTitle: {
-    ...theme.typography.styles.bodySmall,
-    fontWeight: '600',
-    marginBottom: theme.spacing.sm,
-  },
-  requirementText: {
-    ...theme.typography.styles.caption,
-    color: theme.colors.textSecondary,
-    marginBottom: theme.spacing.xs,
   },
 });
 
