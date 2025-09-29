@@ -15,6 +15,7 @@ import { filesService } from '../../services/files';
 import { theme } from '../../theme';
 import LoadingScreen from '../../components/common/LoadingScreen';
 import { useDateFormatter } from '../../hooks/useDateFormatter';
+import { useFileFormatter } from '../../hooks/useFileFormatter';
 
 type FileDetailNavigationProp = StackNavigationProp<AppStackParamList, 'FileDetail'>;
 type FileDetailRouteProp = RouteProp<AppStackParamList, 'FileDetail'>;
@@ -24,6 +25,7 @@ const FileDetailScreen: React.FC = () => {
   const route = useRoute<FileDetailRouteProp>();
   const { fileId } = route.params;
   const { smartFormatDate } = useDateFormatter();
+  const { formatFileSize } = useFileFormatter();
   
   const [loading, setLoading] = useState(true);
   const [file, setFile] = useState<File | null>(null);
@@ -157,14 +159,6 @@ const FileDetailScreen: React.FC = () => {
     return '📁';
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
@@ -172,7 +166,7 @@ const FileDetailScreen: React.FC = () => {
       case 'inactive':
         return theme.colors.textTertiary;
       default:
-        return theme.colors.textSecondary;
+        return theme.colors.success;
     }
   };
 
@@ -183,7 +177,7 @@ const FileDetailScreen: React.FC = () => {
       case 'inactive':
         return 'Inactivo';
       default:
-        return 'Desconocido';
+        return 'Activo';
     }
   };
 
@@ -223,7 +217,7 @@ const FileDetailScreen: React.FC = () => {
               styles.statusDot,
               { backgroundColor: getStatusColor(file.status) }
             ]} />
-            <Text style={styles.infoValue}>{getStatusText(file.status)}</Text>
+            <Text style={[styles.infoValue, { color: getStatusColor(file.status) }]}>{getStatusText(file.status)}</Text>
           </View>
         </View>
         
