@@ -7,6 +7,7 @@ import {
   StyleSheet,
   TextInput,
   Modal,
+  Image,
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { authService } from '../../services/auth';
@@ -82,9 +83,11 @@ const ProfileScreen: React.FC = () => {
       {/* Profile Header */}
       <View style={styles.header}>
         <View style={styles.avatarContainer}>
-          <Text style={styles.avatarText}>
-            {user?.name?.charAt(0).toUpperCase() || 'U'}
-          </Text>
+          <Image 
+            source={require('../../../assets/img/logo_vacio.png')}
+            style={styles.avatarImage}
+            resizeMode="contain"
+          />
         </View>
         <Text style={styles.userName}>{user?.name || 'Usuario'}</Text>
         <Text style={styles.userEmail}>{user?.email}</Text>
@@ -256,10 +259,14 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.whiteBackground,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: theme.spacing.md,
+  },
+  avatarImage: {
+    width: 60,
+    height: 60,
   },
   avatarText: {
     ...theme.typography.styles.h2,

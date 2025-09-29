@@ -3,6 +3,7 @@ export const colors = {
   primary: '#10B981', // Verde principal
   primaryDark: '#059669',
   primaryLight: '#34D399',
+  whiteBackground: '#FFFFFF',
   
   // Colores secundarios
   secondary: '#3B82F6', // Azul
