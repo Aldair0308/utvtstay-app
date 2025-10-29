@@ -59,6 +59,7 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
+// Interceptor de respuestas: degradar el 500 de editor-content (Excel) a WARN
 apiClient.interceptors.response.use(
   (response) => {
     console.log("[API] Response from:", response.config.url, "Status:", response.status);
@@ -68,8 +69,20 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config;
     const status = error.response?.status;
     const url = error.config?.url;
-    
-    console.error("[API] Response error:", {
+
+    // Detecta el caso esperado: editor-content fallando porque el archivo no es Word
+    const isNonWordEditorContent =
+      status === 500 &&
+      url?.includes("/editor-content") &&
+      (
+        String(error.response?.data?.message || "").toLowerCase().includes("not a word document") ||
+        String(error.response?.data?.error || "").toLowerCase().includes("failed to get editor content")
+      );
+
+    // Usa WARN para ese caso; ERROR para el resto
+    const logFn = isNonWordEditorContent ? console.warn : console.error;
+
+    logFn("[API] Response error:", {
       url,
       status,
       message: error.message,

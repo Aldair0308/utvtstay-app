@@ -28,7 +28,8 @@
     "extra": {
       "eas": {
         "projectId": "130fdcf1-1771-47a8-99b5-726b2ff3eca4"
-      }
+      },
+      "API_BASE_URL": "https://estadias-production.up.railway.app/api"
     }
   }
 }

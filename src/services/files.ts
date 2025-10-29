@@ -351,6 +351,7 @@ export const filesService = {
   /**
    * Obtener contenido del editor para móvil
    */
+  // getEditorContent: registra WARN cuando el archivo no es Word y activa fallback controlado
   getEditorContent: async (
     fileId: string,
     versionId?: string
@@ -359,26 +360,62 @@ export const filesService = {
       const url = versionId
         ? `/files/${fileId}/editor-content?version_id=${versionId}`
         : `/files/${fileId}/editor-content`;
-
+  
       console.log(`[FilesService] Getting editor content for file ${fileId}`, {
         url,
         versionId,
       });
-
+  
       const response = await apiClient.get<ApiResponse<any>>(url);
-
+  
       console.log(`[FilesService] Editor content response:`, {
         success: response.data.success,
         hasData: !!response.data.data,
         status: response.status,
       });
-
+  
       if (response.data.success && response.data.data) {
         return response.data.data;
       }
-
+  
       throw new Error("Error al obtener contenido del editor");
     } catch (error: any) {
+      const isNonWordEditorContent =
+        error?.response?.status === 500 &&
+        String(error?.response?.data?.message || "").toLowerCase().includes("not a word document");
+  
+      if (isNonWordEditorContent) {
+        console.info(
+          `[FilesService] editor-content no soporta Word para file ${fileId}; devolviendo respuesta controlada para Excel`,
+          {
+            status: error.response?.status,
+            url: error.config?.url,
+          }
+        );
+        // Devolver un objeto controlado indicando que es Excel para que FileEditScreen active su ruta Excel sin errores
+        return {
+          file: {
+            id: Number(fileId),
+            name: "Archivo",
+            type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            size: 0,
+            is_word: false,
+            is_excel: true,
+            is_pdf: false,
+            editable: false,
+          },
+          content: {
+            type: "excel",
+            data: "",
+            editable: false,
+            message: "Excel detectado vía editor-content",
+          },
+          version: 1,
+          total_versions: 1,
+          last_modified: new Date().toISOString(),
+        };
+      }
+  
       console.error(
         `[FilesService] Error en getEditorContent para archivo ${fileId}:`,
         {
@@ -388,13 +425,13 @@ export const filesService = {
           url: error.config?.url,
         }
       );
-
+  
       if (error.response?.status === 403) {
         throw new Error(
           "No tienes permisos para editar este archivo. Verifica que tengas los permisos necesarios o contacta al administrador."
         );
       }
-
+  
       throw new Error(handleApiError(error));
     }
   },
@@ -505,9 +542,7 @@ export const filesService = {
   /**
    * Obtener contenido de un archivo
    */
-  getFileContent: async (
-    fileId: string
-  ): Promise<{ content: string; mimeType: string; html?: string }> => {
+  getFileContent: async (fileId: string): Promise<{ content: string; mimeType: string; html?: string }> => {
     try {
       const response = await apiClient.get<
         ApiResponse<{ content: string; mime_type: string; html?: string }>

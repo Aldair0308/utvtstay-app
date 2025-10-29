@@ -20,9 +20,9 @@ import {
   useNavigation,
   useRoute,
   useFocusEffect,
-  StackNavigationProp,
   RouteProp,
 } from "@react-navigation/native";
+import { StackNavigationProp } from "@react-navigation/stack";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { filesService } from "../../services/files";
 import { useTheme } from "../../context/ThemeContext";
@@ -72,6 +72,9 @@ const FileEditScreen: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  // Estado para visualización de Excel
+  const [isExcelView, setIsExcelView] = useState(false);
+  const [excelDataBase64, setExcelDataBase64] = useState<string | null>(null);
 
   // Refs para mantener el foco del WebView
   const webViewRef = useRef<any>(null);
@@ -104,26 +107,28 @@ const FileEditScreen: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // Configurar el header con botón de guardar
+    // Configurar el header con botón de guardar (solo para contenido editable)
     navigation.setOptions({
       headerRight: () => (
-        <TouchableOpacity
-          onPress={handleSave}
-          disabled={saving || !hasChanges}
-          style={styles.headerButton}
-        >
-          <Text
-            style={[
-              styles.headerButtonText,
-              (!hasChanges || saving) && styles.headerButtonTextDisabled,
-            ]}
+        isExcelView ? null : (
+          <TouchableOpacity
+            onPress={handleSave}
+            disabled={saving || !hasChanges}
+            style={styles.headerButton}
           >
-            {saving ? "Guardando..." : "Guardar"}
-          </Text>
-        </TouchableOpacity>
+            <Text
+              style={[
+                styles.headerButtonText,
+                (!hasChanges || saving) && styles.headerButtonTextDisabled,
+              ]}
+            >
+              {saving ? "Guardando..." : "Guardar"}
+            </Text>
+          </TouchableOpacity>
+        )
       ),
     });
-  }, [navigation, saving, hasChanges]);
+  }, [navigation, saving, hasChanges, isExcelView]);
 
   // Sincronizar cambios de contenido con el WebView via JavaScript injection
   // Esto evita re-renders del WebView manteniendo el foco y el teclado abierto
@@ -361,6 +366,195 @@ const FileEditScreen: React.FC = () => {
   `;
   }, []); // SIN dependencias - HTML completamente estático
 
+  // HTML para visualizar Excel (solo lectura)
+  const excelHtml = useMemo(() => {
+    const base64 = excelDataBase64 || '';
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Excel Editor</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; background: #fff; }
+        .toolbar { display: flex; flex-wrap: wrap; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #e5e5e5; background: #f7f7f7; }
+        .btn { font-size: 14px; color: #555; cursor: pointer; }
+        .container { padding: 8px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ddd; padding: 6px; font-size: 12px; min-width: 60px; }
+        th { background: #fafafa; }
+        td { outline: none; }
+        td[contenteditable="true"]:focus { box-shadow: inset 0 0 0 2px #3b82f6; }
+      </style>
+      <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    </head>
+    <body>
+      <div class="toolbar">
+        <span class="btn" id="btn-save">Guardar Cambios</span>
+        <span class="btn" id="btn-undo">Deshacer</span>
+        <span class="btn" id="btn-redo">Rehacer</span>
+        <span class="btn" id="btn-export">Exportar XLSX</span>
+        <label class="btn" for="file-import">Importar XLSX</label>
+        <input type="file" id="file-import" accept=".xlsx" style="display:none" />
+      </div>
+      <div class="container">
+        <div id="sheet"></div>
+      </div>
+      <script>
+        function base64ToBinary(b64) {
+          try {
+            var s = (b64 || '');
+            // Quitar prefijo data: si existe
+            s = s.replace(/^data:[^;]+;base64,/, '');
+            // Normalizar base64-url a estándar
+            s = s.replace(/-/g, '+').replace(/_/g, '/');
+            // Completar padding
+            while (s.length % 4 !== 0) s += '=';
+            var binaryString = atob(s);
+            var len = binaryString.length;
+            var bytes = new Uint8Array(len);
+            for (var i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
+            return bytes;
+          } catch (e) {
+            console.error('[Excel Debug] base64 decode failed:', e);
+            return null;
+          }
+        }
+
+        // Historial simple para deshacer/rehacer
+        const history = []; let historyIndex = -1; let grid = [];
+
+        function pushHistory() {
+          history.splice(historyIndex + 1);
+          history.push(JSON.stringify(grid));
+          historyIndex = history.length - 1;
+        }
+
+        function renderTable() {
+          const container = document.getElementById('sheet');
+          const rows = grid.length;
+          const cols = Math.max(...grid.map(r => r.length), 0);
+          let html = '<table><thead><tr>';
+          for (let c = 0; c < cols; c++) html += '<th>' + String.fromCharCode(65 + c) + '</th>';
+          html += '</tr></thead><tbody>';
+          for (let r = 0; r < Math.max(rows, 20); r++) {
+            html += '<tr>';
+            for (let c = 0; c < Math.max(cols, 10); c++) {
+              const val = (grid[r] && grid[r][c]) ? grid[r][c] : '';
+              html += '<td contenteditable="true" data-r="' + r + '" data-c="' + c + '">' + (val === undefined ? '' : String(val)) + '</td>';
+            }
+            html += '</tr>';
+          }
+          html += '</tbody></table>';
+          container.innerHTML = html;
+          bindCellEvents();
+        }
+
+        function bindCellEvents() {
+          const cells = document.querySelectorAll('td[contenteditable="true"]');
+          cells.forEach(cell => {
+            cell.addEventListener('input', () => {
+              const r = parseInt(cell.getAttribute('data-r'));
+              const c = parseInt(cell.getAttribute('data-c'));
+              if (!grid[r]) grid[r] = [];
+              grid[r][c] = cell.textContent || '';
+              window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'excelChanged' }));
+            });
+          });
+        }
+
+        function workbookToGrid(wb) {
+          const firstSheetName = wb.SheetNames[0];
+          const ws = wb.Sheets[firstSheetName];
+          // Obtener matriz de arrays
+          const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: false });
+          grid = aoa.map(row => row.map(cell => (cell === undefined ? '' : cell)));
+          pushHistory();
+          renderTable();
+        }
+
+        function gridToWorkbook() {
+          const ws = XLSX.utils.aoa_to_sheet(grid);
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+          return wb;
+        }
+
+        // Inicializar desde base64
+        (function(){
+          const b64 = ${JSON.stringify(base64)};
+          const container = document.getElementById('sheet');
+          if (typeof XLSX === 'undefined') {
+            container.innerHTML = '<p style="color:#c00; padding:8px">No se pudo cargar la librería XLSX. Verifica conexión o permisos del WebView.</p>';
+            console.error('Excel render error: XLSX library not loaded');
+            return;
+          }
+          const bytes = base64ToBinary(b64);
+          if (!bytes) {
+            container.innerHTML = '<p style="color:#c00; padding:8px">No se pudo cargar el contenido del Excel (base64 inválido).</p>';
+            return;
+          }
+          try {
+            const wb = XLSX.read(bytes, { type: 'array' });
+            workbookToGrid(wb);
+          } catch (err) {
+            container.innerHTML = '<p style="color:#c00; padding:8px">Error al procesar el archivo Excel.</p>';
+            console.error('Excel render error', err);
+          }
+        })();
+
+        // Botones
+        document.getElementById('btn-save').addEventListener('click', function(){
+          try {
+            const wb = gridToWorkbook();
+            const b64 = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
+            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'excelSave', base64: b64 }));
+          } catch (e) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'excelError', message: 'Error al generar XLSX' }));
+          }
+        });
+        document.getElementById('btn-export').addEventListener('click', function(){
+          try {
+            const wb = gridToWorkbook();
+            const b64 = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
+            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'excelExport', base64: b64 }));
+          } catch (e) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'excelError', message: 'Error al exportar XLSX' }));
+          }
+        });
+        document.getElementById('file-import').addEventListener('change', function(evt){
+          const file = evt.target.files && evt.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = function(e){
+            try {
+              const data = new Uint8Array(e.target.result);
+              const wb = XLSX.read(data, { type: 'array' });
+              workbookToGrid(wb);
+              window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'excelImported' }));
+            } catch (err) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'excelError', message: 'Error al importar XLSX' }));
+            }
+          };
+          reader.readAsArrayBuffer(file);
+        });
+        document.getElementById('btn-undo').addEventListener('click', function(){
+          if (historyIndex > 0) {
+            historyIndex--; grid = JSON.parse(history[historyIndex]); renderTable();
+          }
+        });
+        document.getElementById('btn-redo').addEventListener('click', function(){
+          if (historyIndex < history.length - 1) {
+            historyIndex++; grid = JSON.parse(history[historyIndex]); renderTable();
+          }
+        });
+      </script>
+    </body>
+    </html>
+    `;
+  }, [excelDataBase64]);
+
   const verifyUserPermissions = async () => {
     try {
       const token = await AsyncStorage.getItem("userToken");
@@ -410,42 +604,6 @@ const FileEditScreen: React.FC = () => {
       });
 
       setLoading(true);
-
-      // Si tenemos contenido inicial, usarlo directamente
-      if (initialContent) {
-        console.log("[FileEditScreen] Usando contenido inicial proporcionado:", {
-          contentLength: initialContent.length,
-        });
-
-        // Crear estructura compatible con el componente existente
-        const editorContent: EditorContent = {
-          file: {
-            id: fileId,
-            name: "Archivo",
-            type: "text/html",
-            size: initialContent.length,
-            is_word: false,
-            is_excel: false,
-            is_pdf: false,
-            editable: true,
-          },
-          content: {
-            type: "text/html",
-            data: initialContent,
-            editable: true,
-          },
-          version: 1,
-          total_versions: 1,
-          last_modified: new Date().toISOString(),
-        };
-
-        setEditorData(editorContent);
-        setHtmlContent(initialContent);
-        setHasChanges(false);
-        return;
-      }
-
-      // Si no hay contenido inicial, cargar desde el servidor usando la misma lógica que FileDetailScreen
       // Verificar permisos del usuario antes de proceder
       const { user, token } = await verifyUserPermissions();
 
@@ -454,56 +612,127 @@ const FileEditScreen: React.FC = () => {
         token ? `${token.substring(0, 20)}...` : "No token"
       );
 
-      // Usar la misma lógica que FileDetailScreen para obtener la versión actual
+      // Intentar cargar contenido del editor desde el backend
+      try {
+        const editorResponse = await filesService.getEditorContent(
+          fileId.toString()
+        );
+
+        // Caso: contenido HTML editable (Word)
+        if (editorResponse?.content?.editable && (editorResponse.content.type === "html" || editorResponse.content.type?.includes("html"))) {
+          const editorContent: EditorContent = {
+            file: {
+              id: fileId,
+              name: editorResponse.file?.name || "Archivo",
+              type: editorResponse.file?.type || "text/html",
+              size: editorResponse.file?.size || 0,
+              is_word: !!editorResponse.file?.is_word,
+              is_excel: !!editorResponse.file?.is_excel,
+              is_pdf: !!editorResponse.file?.is_pdf,
+              editable: true,
+            },
+            content: {
+              type: "text/html",
+              data: editorResponse.content.data || "",
+              editable: true,
+              message: editorResponse.content?.message,
+            },
+            version: editorResponse.version || 1,
+            total_versions: editorResponse.total_versions || 1,
+            last_modified:
+              editorResponse.last_modified || new Date().toISOString(),
+          };
+
+          setEditorData(editorContent);
+          setHtmlContent(editorResponse.content.data || "");
+          setHasChanges(false);
+          return; // ya cargamos contenido editable en WebView
+        }
+        // Caso: Excel (solo visualización)
+        if (editorResponse?.file?.is_excel || editorResponse?.content?.type === 'excel') {
+          try {
+            const contentData = await filesService.getFileContent(fileId.toString());
+            // Se espera contenido en base64 del XLSX
+            const excelBase64 = contentData?.content || '';
+
+            const editorContent: EditorContent = {
+              file: {
+                id: fileId,
+                name: editorResponse.file?.name || "Archivo",
+                type: editorResponse.file?.type || contentData?.mimeType || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                size: 0,
+                is_word: false,
+                is_excel: true,
+                is_pdf: false,
+                editable: false,
+              },
+              content: {
+                type: 'excel',
+                data: excelBase64,
+                editable: false,
+                message: editorResponse?.content?.message,
+              },
+              version: editorResponse.version || 1,
+              total_versions: editorResponse.total_versions || 1,
+              last_modified: editorResponse.last_modified || new Date().toISOString(),
+            };
+
+            setExcelDataBase64(excelBase64);
+            setIsExcelView(true);
+            setEditorData(editorContent);
+            setHasChanges(false);
+            return; // cargamos visor de Excel
+          } catch (excelError) {
+            console.warn('[FileEditScreen] Error cargando contenido Excel:', excelError);
+            const nonEditableMsg = editorResponse?.content?.message || 'Este archivo no es editable en la aplicación móvil.';
+            Alert.alert('Vista de Excel no disponible', nonEditableMsg, [
+              { text: 'OK', onPress: () => navigation.goBack() },
+            ]);
+            return;
+          }
+        }
+
+        // No editable y no Excel, mostrar aviso y salir
+        const nonEditableMsg = editorResponse?.content?.message || "Este archivo no es editable en la aplicación móvil.";
+        Alert.alert("Archivo no editable", nonEditableMsg, [
+          { text: "OK", onPress: () => navigation.goBack() },
+        ]);
+        return;
+      } catch (editorError) {
+        console.warn(
+          "[FileEditScreen] No fue posible cargar editor-content, usando fallback:",
+          editorError
+        );
+      }
+
+      // Fallback: evitar /editor-content para Excel; obtener contenido directo del archivo
       let content = '';
       let mimeType = 'text/html';
-      
       try {
-        const fileHistory = await filesService.getFileHistory(fileId);
-        
-        if (fileHistory && fileHistory.length > 0) {
-          // Mapear y ordenar igual que en FileDetailScreen
-          const mappedHistory = fileHistory.map((item, index) => ({
-            id: item.id.toString(),
-            version: item.version,
-            isCurrentVersion: index === 0 // La primera versión es la más reciente
-          }));
-          
-          // Ordenar por versión descendente (más reciente primero)
-          const sortedHistory = mappedHistory.sort((a, b) => b.version - a.version);
-          
-          // Encontrar la versión actual (la primera después del ordenamiento)
-          const currentVersion = sortedHistory[0];
-          
-          console.log("[FileEditScreen] Versión actual encontrada:", {
-            version: currentVersion.version,
-            id: currentVersion.id
-          });
-          
-          // Usar la misma lógica que FileContentViewer para obtener el contenido
-          if (currentVersion.version === 1) {
-            // Si es la versión 1, usar fileId para obtener el contenido del archivo original
-            const contentData = await filesService.getFileContent(fileId.toString());
-            content = contentData?.html || contentData?.content || '';
-            mimeType = contentData?.mimeType || 'text/html';
-          } else {
-            // Si es otra versión, usar changeId para obtener el contenido del cambio
-            const contentData = await filesService.getFileChangeContent(currentVersion.id);
-            content = contentData?.html || contentData?.content || '';
-            mimeType = contentData?.mimeType || 'text/html';
-          }
-        } else {
-          // Si no hay historial, usar getFileContent como fallback
-          const contentData = await filesService.getFileContent(fileId.toString());
-          content = contentData?.html || contentData?.content || '';
-          mimeType = contentData?.mimeType || 'text/html';
-        }
-      } catch (historyError) {
-        console.warn("[FileEditScreen] Error obteniendo historial, usando fallback:", historyError);
-        // Fallback: usar getFileContent
         const contentData = await filesService.getFileContent(fileId.toString());
         content = contentData?.html || contentData?.content || '';
         mimeType = contentData?.mimeType || 'text/html';
+      } catch (contentErr) {
+        console.warn('[FileEditScreen] Error en getFileContent, intentando historial:', contentErr);
+        try {
+          const fileHistory = await filesService.getFileHistory(fileId);
+          if (fileHistory && fileHistory.length > 0) {
+            const mappedHistory = fileHistory.map((item, index) => ({
+              id: item.id.toString(),
+              version: item.version,
+              isCurrentVersion: index === 0
+            }));
+            const sortedHistory = mappedHistory.sort((a, b) => b.version - a.version);
+            const currentVersion = sortedHistory[0];
+            console.log('[FileEditScreen] Versión actual encontrada:', { version: currentVersion.version, id: currentVersion.id });
+            // Evitar llamar a /file-changes/... para Excel conocido; preferir contenido directo
+            const contentData = await filesService.getFileContent(fileId.toString());
+            content = contentData?.html || contentData?.content || '';
+            mimeType = contentData?.mimeType || 'text/html';
+          }
+        } catch (historyError) {
+          console.warn('[FileEditScreen] Fallback final sin historial:', historyError);
+        }
       }
 
       console.log("[FileEditScreen] Contenido cargado exitosamente:", {
@@ -522,8 +751,43 @@ const FileEditScreen: React.FC = () => {
         return;
       }
 
-      // Crear estructura compatible con el componente existente
-      const editorContent: EditorContent = {
+      // Si el contenido es un Excel, habilitar visor y no editor
+      const isExcelMime =
+        mimeType?.includes("spreadsheetml") ||
+        mimeType?.includes("ms-excel") ||
+        mimeType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+      if (isExcelMime) {
+        const editorContentExcel: EditorContent = {
+          file: {
+            id: fileId,
+            name: "Archivo",
+            type: mimeType,
+            size: 0,
+            is_word: false,
+            is_excel: true,
+            is_pdf: false,
+            editable: false,
+          },
+          content: {
+            type: "excel",
+            data: content, // base64 esperado
+            editable: false,
+          },
+          version: 1,
+          total_versions: 1,
+          last_modified: new Date().toISOString(),
+        };
+
+        setExcelDataBase64(content);
+        setIsExcelView(true);
+        setEditorData(editorContentExcel);
+        setHasChanges(false);
+        return;
+      }
+
+      // Contenido no Excel: usar editor HTML
+      const editorContentHtml: EditorContent = {
         file: {
           id: fileId,
           name: "Archivo", // Se puede obtener del contexto si está disponible
@@ -544,10 +808,8 @@ const FileEditScreen: React.FC = () => {
         last_modified: new Date().toISOString(),
       };
 
-      setEditorData(editorContent);
+      setEditorData(editorContentHtml);
       setHtmlContent(content);
-
-      // Reset changes flag
       setHasChanges(false);
     } catch (error: any) {
       console.error("[FileEditScreen] Error loading file for edit:", {
@@ -587,6 +849,13 @@ const FileEditScreen: React.FC = () => {
         contentLength: htmlContent?.length || 0,
         timestamp: new Date().toISOString(),
       });
+
+      // Protección: evitar enviar contenido vacío al endpoint
+      if (!htmlContent || htmlContent.trim().length === 0) {
+        console.warn('[FileEditScreen] Intento de guardado con contenido vacío, abortando.');
+        Alert.alert('Contenido vacío', 'No se puede guardar un archivo con contenido vacío. Verifica el contenido antes de guardar.');
+        return;
+      }
 
       setSaving(true);
 
@@ -639,6 +908,45 @@ const FileEditScreen: React.FC = () => {
     }
   };
 
+  // Guardado para Excel: recibe base64 generado en el WebView
+  const handleExcelSaveBase64 = async (excelBase64: string, versionMsg?: string) => {
+    try {
+      setSaving(true);
+      const token = await AsyncStorage.getItem("userToken");
+      console.log("[FileEditScreen] Token para guardado Excel:", token ? `${token.substring(0, 20)}...` : "No token");
+
+      // Protección: validar base64 antes de enviar
+      if (!excelBase64 || excelBase64.trim().length === 0) {
+        console.warn('[FileEditScreen] Intento de guardado Excel con base64 vacío, abortando.');
+        Alert.alert('Contenido vacío', 'El contenido de la hoja de cálculo está vacío. Asegúrate de exportar o generar el XLSX antes de guardar.');
+        setSaving(false);
+        return;
+      }
+
+      console.log('[FileEditScreen] Excel base64 length:', excelBase64.length);
+
+      await filesService.updateContentMobile(
+        fileId.toString(),
+        excelBase64,
+        versionMsg || "Actualización Excel desde móvil"
+      );
+
+      console.log("[FileEditScreen] Excel guardado exitosamente");
+      setHasChanges(false);
+      Alert.alert("Éxito", "Hoja de cálculo guardada correctamente");
+    } catch (error: any) {
+      console.error("[FileEditScreen] Error guardando Excel:", {
+        fileId: fileId.toString(),
+        error: error.message,
+        status: error.response?.status,
+        timestamp: new Date().toISOString(),
+      });
+      Alert.alert("Error", error.message || "No se pudo guardar el Excel");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const onWebViewMessage = (event: any) => {
     try {
       const message = JSON.parse(event.nativeEvent.data);
@@ -649,6 +957,20 @@ const FileEditScreen: React.FC = () => {
           setHtmlContent(newContent);
           setHasChanges(true);
         }
+      } else if (message.type === 'excelChanged') {
+        setHasChanges(true);
+      } else if (message.type === 'excelSave') {
+        if (message.base64) {
+          handleExcelSaveBase64(message.base64, 'Actualización Excel desde móvil');
+        }
+      } else if (message.type === 'excelExport') {
+        if (message.base64) {
+          handleExcelSaveBase64(message.base64, 'Exportado XLSX desde móvil');
+        }
+      } else if (message.type === 'excelError') {
+        Alert.alert('Error Excel', message.message || 'Ocurrió un error en el editor Excel');
+      } else if (message.type === 'excelImported') {
+        setHasChanges(true);
       } else if (message.type === "editorReady") {
         // El editor está listo, enviar el contenido inicial
         if (htmlContent && webViewRef.current) {
@@ -827,10 +1149,12 @@ const FileEditScreen: React.FC = () => {
         >
           <WebView
             ref={webViewRef}
-            key="stable-editor-webview"
-            source={{ html: editableHtml }}
+            key={isExcelView ? `excel-viewer-${(excelDataBase64?.length || 0)}` : 'stable-editor-webview'}
+            source={{ html: isExcelView ? excelHtml : editableHtml }}
             style={styles.webView}
             onMessage={onWebViewMessage}
+            javaScriptEnabled={true}
+            originWhitelist={['*']}
             scalesPageToFit={false}
             startInLoadingState={true}
             keyboardDisplayRequiresUserAction={false}
@@ -842,36 +1166,38 @@ const FileEditScreen: React.FC = () => {
             renderLoading={() => (
               <View style={styles.webViewLoading}>
                 <ActivityIndicator size="large" color={theme.colors.primary} />
-                <Text style={styles.loadingText}>Cargando editor...</Text>
+                <Text style={styles.loadingText}>{isExcelView ? 'Cargando hoja de cálculo...' : 'Cargando editor...'}</Text>
               </View>
             )}
           />
         </TouchableOpacity>
 
         {/* Action Buttons */}
-        <View style={styles.actionButtons}>
-          <TouchableOpacity
-            style={styles.discardButton}
-            onPress={handleDiscard}
-          >
-            <Text style={styles.discardButtonText}>Descartar</Text>
-          </TouchableOpacity>
+        {!isExcelView && (
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              style={styles.discardButton}
+              onPress={handleDiscard}
+            >
+              <Text style={styles.discardButtonText}>Descartar</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.saveButton,
-              (!hasChanges || saving) && styles.saveButtonDisabled,
-            ]}
-            onPress={handleSave}
-            disabled={!hasChanges || saving}
-          >
-            {saving ? (
-              <ActivityIndicator size="small" color={theme.colors.background} />
-            ) : (
-              <Text style={styles.saveButtonText}>Guardar</Text>
-            )}
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity
+              style={[
+                styles.saveButton,
+                (!hasChanges || saving) && styles.saveButtonDisabled,
+              ]}
+              onPress={handleSave}
+              disabled={!hasChanges || saving}
+            >
+              {saving ? (
+                <ActivityIndicator size="small" color={theme.colors.background} />
+              ) : (
+                <Text style={styles.saveButtonText}>Guardar</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
