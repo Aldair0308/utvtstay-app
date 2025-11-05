@@ -404,20 +404,24 @@ const FileEditScreen: React.FC = () => {
       <script>
         function base64ToBinary(b64) {
           try {
-            var s = (b64 || '');
-            // Quitar prefijo data: si existe
-            s = s.replace(/^data:[^;]+;base64,/, '');
-            // Normalizar base64-url a estándar
-            s = s.replace(/-/g, '+').replace(/_/g, '/');
-            // Completar padding
-            while (s.length % 4 !== 0) s += '=';
-            var binaryString = atob(s);
-            var len = binaryString.length;
-            var bytes = new Uint8Array(len);
-            for (var i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
+            const input = b64 || '';
+            const withoutPrefix = input.includes(',') ? input.split(',').pop() || '' : input;
+            // Normalizar base64-url y corregir padding
+            let normalized = withoutPrefix.replace(/-/g, '+').replace(/_/g, '/');
+            const pad = normalized.length % 4;
+            if (pad === 2) normalized += '==';
+            else if (pad === 3) normalized += '=';
+            else if (pad === 1) normalized = normalized.slice(0, -1); // caso extraño, recortar
+
+            const binaryString = atob(normalized);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+              bytes[i] = binaryString.charCodeAt(i);
+            }
             return bytes;
           } catch (e) {
-            console.error('[Excel Debug] base64 decode failed:', e);
+            console.error('[Excel Debug] base64 inválido:', e?.message || e);
             return null;
           }
         }
@@ -483,16 +487,52 @@ const FileEditScreen: React.FC = () => {
 
         // Inicializar desde base64
         (function(){
-          const b64 = ${JSON.stringify(base64)};
           const container = document.getElementById('sheet');
-          if (typeof XLSX === 'undefined') {
-            container.innerHTML = '<p style="color:#c00; padding:8px">No se pudo cargar la librería XLSX. Verifica conexión o permisos del WebView.</p>';
-            console.error('Excel render error: XLSX library not loaded');
+          const b64 = ${JSON.stringify(base64)};
+          if (!b64 || b64.length === 0) {
+            container.innerHTML = '<p style="color:#c00; padding:8px">No se recibió contenido del Excel (base64 vacío).</p>';
+            return;
+          }
+          if (typeof XLSX === 'undefined' || !XLSX || !XLSX.read) {
+            container.innerHTML = '<p style="color:#c00; padding:8px">No se pudo cargar la librería XLSX. Verifica conexión o permisos.</p>';
+            console.error('XLSX no disponible en WebView');
             return;
           }
           const bytes = base64ToBinary(b64);
           if (!bytes) {
             container.innerHTML = '<p style="color:#c00; padding:8px">No se pudo cargar el contenido del Excel (base64 inválido).</p>';
+            return;
+          }
+          // Limpieza y validación agresiva del Base64
+          function sanitizeBase64Input(raw) {
+            if (!raw || typeof raw !== 'string') return '';
+            let s = raw.trim();
+            const commaIndex = s.indexOf(',');
+            if (s.startsWith('data:') && commaIndex !== -1) {
+              s = s.slice(commaIndex + 1);
+            }
+            s = s.replace(/\s+/g, '');
+            s = s.replace(/-/g, '+').replace(/_/g, '/');
+            s = s.replace(/[^A-Za-z0-9+/=]/g, '');
+            const pad = s.length % 4;
+            if (pad !== 0) s += '='.repeat(4 - pad);
+            return s;
+          }
+          const cleanedB64 = sanitizeBase64Input(b64);
+          if (!cleanedB64 || cleanedB64.length < 128) {
+            container.innerHTML = '<p style="color:#c00; padding:8px">Contenido Excel demasiado corto. Verifica que el backend envíe el binario completo en base64.</p>';
+            console.error('Base64 demasiado corto tras limpieza:', cleanedB64 ? cleanedB64.length : 0);
+            return;
+          }
+          const bytes = base64ToBinary(cleanedB64);
+          if (!bytes || bytes.length < 4) {
+            container.innerHTML = '<p style="color:#c00; padding:8px">No se pudo cargar el contenido del Excel (base64 inválido tras limpieza).</p>';
+            return;
+          }
+          // Verificar firma ZIP (PK) para XLSX
+          if (bytes.length < 2 || bytes[0] !== 0x50 || bytes[1] !== 0x4B) {
+            container.innerHTML = '<p style="color:#c00; padding:8px">El contenido no parece un XLSX (ZIP). Verifica que el backend envíe el binario en base64.</p>';
+            console.error('Firma ZIP inválida: primeros bytes', bytes[0], bytes[1]);
             return;
           }
           try {
@@ -653,7 +693,8 @@ const FileEditScreen: React.FC = () => {
           try {
             const contentData = await filesService.getFileContent(fileId.toString());
             // Se espera contenido en base64 del XLSX
-            const excelBase64 = contentData?.content || '';
+            const rawBase64 = contentData?.content || '';
+            const excelBase64 = (rawBase64 || '').trim().replace(/\s+/g, '');
 
             const editorContent: EditorContent = {
               file: {
@@ -677,6 +718,10 @@ const FileEditScreen: React.FC = () => {
               last_modified: editorResponse.last_modified || new Date().toISOString(),
             };
 
+            console.log('[FileEditScreen] Excel view enabled (editor-content)', {
+              mimeType: editorContent.file.type,
+              base64Length: excelBase64.length,
+            });
             setExcelDataBase64(excelBase64);
             setIsExcelView(true);
             setEditorData(editorContent);
@@ -779,7 +824,12 @@ const FileEditScreen: React.FC = () => {
           last_modified: new Date().toISOString(),
         };
 
-        setExcelDataBase64(content);
+        const cleanedBase64 = (content || '').trim().replace(/\s+/g, '');
+        console.log('[FileEditScreen] Excel view enabled (fallback MIME)', {
+          mimeType,
+          base64Length: cleanedBase64.length,
+        });
+        setExcelDataBase64(cleanedBase64);
         setIsExcelView(true);
         setEditorData(editorContentExcel);
         setHasChanges(false);
@@ -1064,7 +1114,8 @@ const FileEditScreen: React.FC = () => {
   }
 
   // Verificar si el archivo es editable
-  if (!editorData.content.editable) {
+  // No bloquear cuando estamos en modo Excel (visor en WebView)
+  if (!editorData.content.editable && !isExcelView) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
@@ -1149,12 +1200,10 @@ const FileEditScreen: React.FC = () => {
         >
           <WebView
             ref={webViewRef}
-            key={isExcelView ? `excel-viewer-${(excelDataBase64?.length || 0)}` : 'stable-editor-webview'}
+            key={isExcelView ? `excel-${(excelDataBase64?.length||0)}` : 'stable-editor-webview'}
             source={{ html: isExcelView ? excelHtml : editableHtml }}
             style={styles.webView}
             onMessage={onWebViewMessage}
-            javaScriptEnabled={true}
-            originWhitelist={['*']}
             scalesPageToFit={false}
             startInLoadingState={true}
             keyboardDisplayRequiresUserAction={false}
@@ -1163,6 +1212,8 @@ const FileEditScreen: React.FC = () => {
             mediaPlaybackRequiresUserAction={false}
             scrollEnabled={true}
             nestedScrollEnabled={true}
+            javaScriptEnabled={true}
+            originWhitelist={['*']}
             renderLoading={() => (
               <View style={styles.webViewLoading}>
                 <ActivityIndicator size="large" color={theme.colors.primary} />

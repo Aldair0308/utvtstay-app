@@ -385,13 +385,6 @@ export const filesService = {
         String(error?.response?.data?.message || "").toLowerCase().includes("not a word document");
   
       if (isNonWordEditorContent) {
-        console.info(
-          `[FilesService] editor-content no soporta Word para file ${fileId}; devolviendo respuesta controlada para Excel`,
-          {
-            status: error.response?.status,
-            url: error.config?.url,
-          }
-        );
         // Devolver un objeto controlado indicando que es Excel para que FileEditScreen active su ruta Excel sin errores
         return {
           file: {

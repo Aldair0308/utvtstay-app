@@ -79,16 +79,16 @@ apiClient.interceptors.response.use(
         String(error.response?.data?.error || "").toLowerCase().includes("failed to get editor content")
       );
 
-    // Usa WARN para ese caso; ERROR para el resto
-    const logFn = isNonWordEditorContent ? console.warn : console.error;
-
-    logFn("[API] Response error:", {
-      url,
-      status,
-      message: error.message,
-      data: error.response?.data,
-      isRetry: originalRequest._retry
-    });
+    // Silenciar el caso esperado (editor-content no Word) para no ensuciar consola
+    if (!isNonWordEditorContent) {
+      console.error("[API] Response error:", {
+        url,
+        status,
+        message: error.message,
+        data: error.response?.data,
+        isRetry: originalRequest._retry
+      });
+    }
     
     if (status === 401 && !originalRequest._retry) {
       console.warn("[API] 401 Unauthorized - Attempting token refresh");
