@@ -13,9 +13,13 @@ import { theme } from '../../theme';
 import CustomAlert from '../../components/common/CustomAlert';
 import ChangePasswordModal from '../../components/common/ChangePasswordModal';
 import { useProfileAlerts } from '../../components/common/ProfileAlerts';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { AppStackParamList } from '../../interfaces';
 
 const ProfileScreen: React.FC = () => {
   const { user, logout } = useAuth();
+  const navigation = useNavigation<StackNavigationProp<AppStackParamList, 'Profile'>>();
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [loading, setLoading] = useState(false);
   
@@ -130,19 +134,19 @@ const ProfileScreen: React.FC = () => {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Información de la App</Text>
         
-        <TouchableOpacity style={styles.settingItem}>
+        <TouchableOpacity style={styles.settingItem} onPress={() => navigation.navigate('About')}>
           <Text style={styles.settingIcon}>ℹ️</Text>
           <Text style={styles.settingText}>Acerca de UTVstay</Text>
           <Text style={styles.settingChevron}>›</Text>
         </TouchableOpacity>
         
-        <TouchableOpacity style={styles.settingItem}>
+        <TouchableOpacity style={styles.settingItem} onPress={() => navigation.navigate('Terms')}>
           <Text style={styles.settingIcon}>📋</Text>
           <Text style={styles.settingText}>Términos y Condiciones</Text>
           <Text style={styles.settingChevron}>›</Text>
         </TouchableOpacity>
         
-        <TouchableOpacity style={styles.settingItem}>
+        <TouchableOpacity style={styles.settingItem} onPress={() => navigation.navigate('Privacy')}>
           <Text style={styles.settingIcon}>🔒</Text>
           <Text style={styles.settingText}>Política de Privacidad</Text>
           <Text style={styles.settingChevron}>›</Text>
