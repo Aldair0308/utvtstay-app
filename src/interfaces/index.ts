@@ -40,6 +40,9 @@ export type AppStackParamList = {
   };
   Calendar: undefined;
   Profile: undefined;
+  About: undefined;
+  Terms: undefined;
+  Privacy: undefined;
 };
 
 // API Response types

@@ -11,6 +11,9 @@ import FileEditScreen from '../screens/app/FileEditScreen';
 import FileContentViewer from '../screens/app/FileContentViewer';
 import CalendarScreen from '../screens/app/CalendarScreen';
 import ProfileScreen from '../screens/app/ProfileScreen';
+import AboutScreen from '../screens/app/AboutScreen';
+import TermsScreen from '../screens/app/TermsScreen';
+import PrivacyScreen from '../screens/app/PrivacyScreen';
 
 const Stack = createStackNavigator<AppStackParamList>();
 
@@ -96,6 +99,30 @@ const AppStack: React.FC = () => {
         component={ProfileScreen}
         options={{
           title: 'Mi Perfil',
+        }}
+      />
+
+      <Stack.Screen 
+        name="About" 
+        component={AboutScreen}
+        options={{
+          title: 'Acerca de UTVstay',
+        }}
+      />
+
+      <Stack.Screen 
+        name="Terms" 
+        component={TermsScreen}
+        options={{
+          title: 'Términos y Condiciones',
+        }}
+      />
+
+      <Stack.Screen 
+        name="Privacy" 
+        component={PrivacyScreen}
+        options={{
+          title: 'Política de Privacidad',
         }}
       />
     </Stack.Navigator>
