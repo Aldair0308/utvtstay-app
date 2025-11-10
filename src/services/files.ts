@@ -611,4 +611,49 @@ export const filesService = {
       throw new Error(handleApiError(error));
     }
   },
+
+  /**
+   * Registrar un cambio de archivo (incluye soporte para data JSON)
+   * Respeta README_API_ENDPOINTS: POST /api/file-changes/
+   */
+  registerFileChange: async (payload: {
+    file_id: number | string;
+    change_type?: string;
+    position_start?: number;
+    position_end?: number;
+    old_content?: string;
+    new_content?: string;
+    user_email?: string;
+    metadata?: any;
+    version_comment?: string;
+    data?: any;
+  }): Promise<any> => {
+    try {
+      const response = await apiClient.post<ApiResponse<any>>(
+        `/file-changes/`,
+        payload
+      );
+
+      if (response.data.success && response.data.data) {
+        return response.data.data;
+      }
+
+      throw new Error(
+        response.data.message || "Error al registrar el cambio del archivo"
+      );
+    } catch (error: any) {
+      console.error("Error en registerFileChange:", {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        url: error.config?.url,
+      });
+      if (error.response?.status === 403) {
+        throw new Error(
+          "No tienes permisos para registrar cambios en este archivo."
+        );
+      }
+      throw new Error(handleApiError(error));
+    }
+  },
 };
