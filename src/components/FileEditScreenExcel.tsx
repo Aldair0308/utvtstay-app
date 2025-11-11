@@ -2,7 +2,12 @@ import React, { useMemo, useState, useImperativeHandle, forwardRef } from 'react
 import { View, Text, ScrollView, StyleSheet, TextInput } from 'react-native';
 import * as XLSX from 'xlsx';
 // Cargar soporte de codepages para .xls antiguos y texto en distintos encodings
-import 'xlsx/dist/cpexcel.js';
+import * as cpexcel from 'xlsx/dist/cpexcel';
+
+// Configurar cptable para que SheetJS pueda usar los codepages de Excel
+if (typeof XLSX.set_cptable === 'function') {
+  XLSX.set_cptable(cpexcel);
+}
 
 type EditorContentPayload = {
   content: string; // base64 del XLSX
@@ -35,6 +40,36 @@ function sanitizeBase64Input(raw: string): string {
   return s;
 }
 
+// Decodifica base64 a bytes (Uint8Array) sin depender de atob/Buffer
+function decodeBase64ToBytes(b64: string): Uint8Array {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  const map: Record<string, number> = {};
+  for (let i = 0; i < chars.length; i++) map[chars[i]] = i;
+  const cleaned = sanitizeBase64Input(b64);
+  const out: number[] = [];
+  for (let i = 0; i < cleaned.length; i += 4) {
+    const a = cleaned[i];
+    const b = cleaned[i + 1];
+    const c = cleaned[i + 2];
+    const d = cleaned[i + 3];
+    const c1 = map[a];
+    const c2 = map[b];
+    const c3 = c === '=' ? 0 : map[c];
+    const c4 = d === '=' ? 0 : map[d];
+    const b1 = (c1 << 2) | (c2 >> 4);
+    out.push(b1 & 0xff);
+    if (c !== '=') {
+      const b2 = ((c2 & 0x0f) << 4) | (c3 >> 2);
+      out.push(b2 & 0xff);
+    }
+    if (d !== '=') {
+      const b3 = ((c3 & 0x03) << 6) | c4;
+      out.push(b3 & 0xff);
+    }
+  }
+  return new Uint8Array(out);
+}
+
 // Heurística para detectar si el contenido parece base64 en lugar de cadena binaria
 function isProbablyBase64(raw: string): boolean {
   if (!raw || typeof raw !== 'string') return false;
@@ -51,22 +86,175 @@ const ExcelEditor = forwardRef<ExcelEditorHandle, Props>(function ExcelEditor({ 
     editorContent?.mime_type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
     editorContent?.mime_type === 'application/vnd.ms-excel'
   );
+  
+  // Función para detectar y corregir mojibake específico de Windows-1252 a UTF-8
+  const fixMojibake = (text: string): string => {
+    if (!text || typeof text !== 'string') return text;
+    
+    // Patrones comunes de mojibake español -> hebreo/chino
+    const mojibakePatterns: [RegExp, string][] = [
+      // ó -> ֎ (Windows-1252 ó (0xF3) mal interpretado como UTF-8)
+      [/֎/g, 'ó'],
+      // á -> ֳ (Windows-1252 á (0xE1) mal interpretado como UTF-8)  
+      [/ֳ/g, 'á'],
+      // é -> ֱ (Windows-1252 é (0xE9) mal interpretado como UTF-8)
+      [/ֱ/g, 'é'],
+      // í -> ֲ (Windows-1252 í (0xED) mal interpretado como UTF-8)
+      [/ֲ/g, 'í'],
+      // ú -> ֻ (Windows-1252 ú (0xFA) mal interpretado como UTF-8)
+      [/ֻ/g, 'ú'],
+      // ñ -> ֲ± (Windows-1252 ñ (0xF1) mal interpretado como UTF-8)
+      [/ֲ±/g, 'ñ'],
+      // ü -> ֲ¼ (Windows-1252 ü (0xFC) mal interpretado como UTF-8)
+      [/ֲ¼/g, 'ü'],
+      // é -> 鸩 (Windows-1252 é (0xE9) mal interpretado como UTF-8 - caso "méxico")
+      // Este es un caso especial porque 鸩 consume 3 bytes y puede afectar caracteres siguientes
+      [/鸩/g, 'é'],
+      // ó -> 󮼯 (Windows-1252 ó (0xF3) mal interpretado como UTF-8 - caso "Dirección")
+      [/󮼯/g, 'ó'],
+      // Ö -> Ó (Windows-1252 Ö (0xD6) mal interpretado como UTF-8 - caso "EVALUACIÖN")
+      [/Ö/g, 'Ó'],
+      // é -> 鸮 (Windows-1252 é (0xE9) mal interpretado como UTF-8 - caso "Méx.")
+      [/鸮/g, 'é'],
+      // Limpiar fragmentos HTML/XML que puedan colarse de otras celdas
+      [/td>/g, ''],  // Eliminar etiquetas HTML
+      [/<\/?[a-z][^>]*>/ig, '']  // Eliminar cualquier etiqueta HTML completa
+    ];
+    
+    // Primero corregir el caso especial de 鸩 que puede estar afectando caracteres adyacentes
+    let fixed = text;
+    
+    // Buscar y corregir secuencias donde 鸩 aparece y podría haber afectado caracteres siguientes
+    const specialMojibakePatterns = [
+    // Patrón para "m鸩co" -> "méxico" (鸩 consume 3 bytes, afectando la 'x')
+    { pattern: /m鸩co/g, replacement: 'méxico' },
+    // Patrón para "M鸩co" -> "México" (caso con mayúscula)
+    { pattern: /M鸩co/g, replacement: 'México' },
+    // Patrón para "m鸩" -> "mé" (caso general)
+    { pattern: /m鸩/g, replacement: 'mé' },
+    // Patrón para "M鸩" -> "Mé" (caso general con mayúscula)
+    { pattern: /M鸩/g, replacement: 'Mé' },
+    // Patrón para "Direcci󮼯" -> "Dirección"
+    { pattern: /Direcci󮼯/g, replacement: 'Dirección' },
+    // Patrón para "cci󮼯" -> "cción" (caso general)
+    { pattern: /cci󮼯/g, replacement: 'cción' },
+    // Patrón específico para "InterWare Méco" -> "InterWare México"
+    { pattern: /InterWare Méco/g, replacement: 'InterWare México' },
+    // Patrón general para "Méco" -> "México"
+    { pattern: /Méco/g, replacement: 'México' },
+    // Patrón específico para "EVALUACIÖN" -> "EVALUACIÓN" (corrección de Ö -> Ó)
+    { pattern: /EVALUACIÖN/g, replacement: 'EVALUACIÓN' },
+    // Patrón general para "CIÖN" -> "CIÓN" (corrección de Ö -> Ó)
+    { pattern: /CIÖN/g, replacement: 'CIÓN' },
+    // Patrón específico para "M鸮" -> "Méx." (caso "Méx." -> "M鸮")
+    { pattern: /M鸮/g, replacement: 'Méx.' }
+    ];
+    
+    for (const { pattern, replacement } of specialMojibakePatterns) {
+      fixed = fixed.replace(pattern, replacement);
+    }
+    
+    // Luego aplicar las correcciones generales
+    for (const [pattern, replacement] of mojibakePatterns) {
+      fixed = fixed.replace(pattern, replacement);
+    }
+    
+    return fixed;
+  };
+
+  // Función para detectar y corregir concatenaciones no deseadas entre celdas
+  const fixCellConcatenation = (text: string): string => {
+    if (!text || typeof text !== 'string') return text;
+    
+    // Patrones de concatenación común donde palabras se unen sin espacio
+    const concatenationPatterns: [RegExp, string][] = [
+      // Detectar cuando "ción" se une con una palabra que empieza con letra mayúscula
+      [/([a-záéíóúñ])ción([A-Z])/g, '$1ción $2'],
+      // Detectar cuando "ción" se une con letras/dígitos (caso "DirecciónDSM")
+      [/([a-záéíóúñ])ción(\d*[A-Za-z])/g, '$1ción $2'],
+      // Caso general: cuando una palabra termina en minúscula y sigue mayúscula sin espacio
+      [/([a-záéíóúñ])([A-Z])/g, '$1 $2'],
+      // Cuando una palabra termina en letra y sigue un número sin espacio
+      [/([a-zA-Záéíóúñ])(\d)/g, '$1 $2'],
+      // Cuando un número sigue a una letra sin espacio
+      [/(\d)([a-zA-Záéíóúñ])/g, '$1 $2']
+    ];
+    
+    let fixed = text;
+    for (const [pattern, replacement] of concatenationPatterns) {
+      fixed = fixed.replace(pattern, replacement);
+    }
+    
+    return fixed;
+  };
+
   const tableData = useMemo(() => {
     if (!isExcel) return null;
     const rawContent = editorContent?.content || '';
+    // Detectar si parece base64; en caso contrario intentar binario y fallback a array
     const treatAsBase64 = isProbablyBase64(rawContent);
-    const cleaned = treatAsBase64 ? sanitizeBase64Input(rawContent) : rawContent;
-    if (!cleaned || cleaned.length < 128) return null; // demasiado corto para ser un XLSX
     try {
-      const wb = XLSX.read(cleaned, {
-        type: treatAsBase64 ? 'base64' : 'binary',
-        cellText: false,
-        cellDates: true,
-      });
+      let wb: XLSX.WorkBook | null = null;
+      if (treatAsBase64) {
+        const cleaned = sanitizeBase64Input(rawContent);
+        if (!cleaned || cleaned.length < 128) return null; // demasiado corto para ser un XLSX
+        try {
+          // Convertir base64 a Uint8Array para lectura uniforme
+          const bytes = decodeBase64ToBytes(cleaned);
+          wb = XLSX.read(bytes, { type: 'array', cellText: false, cellDates: true });
+        } catch (e0) {
+          console.warn('[FileEditScreenExcel] Fallback array reading failed:', e0);
+          return null;
+        }
+      } else {
+        // Intentar lectura como cadena binaria convertida a bytes
+        try {
+          const s = rawContent || '';
+          const len = s.length;
+          const bytes = new Uint8Array(len);
+          for (let i = 0; i < len; i++) bytes[i] = s.charCodeAt(i) & 0xff;
+          wb = XLSX.read(bytes, { type: 'array', cellText: false, cellDates: true });
+        } catch (e1) {
+          console.warn('[FileEditScreenExcel] Binary to array conversion failed:', e1);
+          return null;
+        }
+      }
+  
       const sheetName = wb.SheetNames[0];
       const ws = wb.Sheets[sheetName];
-      const aoa: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: false, raw: false, defval: '' });
-      const rows = aoa.map(row => row.map(cell => (cell === undefined ? '' : String(cell))));
+      
+      // Usar sheet_to_csv en lugar de sheet_to_json para mejor preservación de celdas
+      const csv = XLSX.utils.sheet_to_csv(ws, { FS: ',', RS: '\n', blankrows: false, skipHidden: true });
+      
+      // Parsear el CSV manualmente para obtener una matriz precisa de celdas
+      const aoa: any[][] = [];
+      const lines = csv.split('\n');
+      for (const line of lines) {
+        if (line.trim() === '') continue;
+        const cells = line.split(',').map(cell => {
+          // Remover comillas alrededor de celdas que las tengan
+          let value = cell.trim();
+          if (value.startsWith('"') && value.endsWith('"')) {
+            value = value.slice(1, -1);
+          }
+          return value === '' ? null : value;
+        });
+        aoa.push(cells);
+      }
+      
+      // Aplicar corrección de mojibake a todas las celdas
+      const rows = aoa.map(row => 
+        row.map(cell => {
+          if (cell === undefined || cell === null) return '';
+          let cellText = String(cell);
+          // Primero corregir mojibake (caracteres incorrectos)
+          cellText = fixMojibake(cellText);
+          // Luego corregir concatenaciones entre celdas
+          cellText = fixCellConcatenation(cellText);
+          return cellText;
+        })
+      );
+      
       const cols = rows.reduce((m, r) => Math.max(m, r.length), 0);
       return { rows, cols, sheetName };
     } catch (e) {
@@ -205,8 +393,8 @@ const styles = StyleSheet.create({
   headerRow: { backgroundColor: '#f7f7f7' },
   cell: { borderWidth: 1, borderColor: '#ddd', paddingHorizontal: 8, paddingVertical: 6, minWidth: 100 },
   headerCell: { backgroundColor: '#f0f0f0' },
-  cellText: { fontSize: 12, color: '#222' },
-  cellInput: { fontSize: 12, color: '#222', padding: 0 },
+  cellText: { fontSize: 12, color: '#222', fontFamily: 'sans-serif' },
+  cellInput: { fontSize: 12, color: '#222', padding: 0, fontFamily: 'sans-serif' },
   containerMsg: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 16 },
   msg: { color: '#444' },
 });
