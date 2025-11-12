@@ -26,6 +26,7 @@ export type ExcelEditorHandle = {
 
 type Props = {
   editorContent: EditorContentPayload;
+  initialDataJson?: any;
   onChange?: () => void;
   style?: any;
 };
@@ -89,10 +90,11 @@ function isProbablyBase64(raw: string): boolean {
 }
 
 const ExcelEditor = forwardRef<ExcelEditorHandle, Props>(function ExcelEditor(
-  { editorContent, onChange, style },
+  { editorContent, initialDataJson, onChange, style },
   ref
 ) {
   const isExcel =
+    !!initialDataJson ||
     editorContent?.mime_type ===
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
     editorContent?.mime_type === "application/vnd.ms-excel";
@@ -200,16 +202,86 @@ const ExcelEditor = forwardRef<ExcelEditorHandle, Props>(function ExcelEditor(
 
   const tableData = useMemo(() => {
     if (!isExcel) return null;
+
+    if (initialDataJson) {
+      try {
+        const payload = initialDataJson;
+        const sheets = Array.isArray(payload?.content)
+          ? payload.content
+          : Array.isArray(payload)
+          ? payload
+          : payload?.sheets || null;
+
+        const sheet = sheets && sheets.length ? sheets[0] : payload;
+        const sheetName: string = sheet?.name || "Sheet1";
+        const declaredColsLen: number =
+          Number(sheet?.cols?.len) || Number(sheet?.cols?.count) || 0;
+
+        const rowsObj = sheet?.rows || {};
+        const rowKeys = Object.keys(rowsObj);
+        const maxRowIndex = rowKeys
+          .map((k) => Number(k))
+          .filter((n) => !isNaN(n))
+          .reduce((m, n) => Math.max(m, n), -1);
+
+        let maxCols = declaredColsLen || 0;
+        const grid: string[][] = [];
+
+        for (let ri = 0; ri <= Math.max(maxRowIndex, 0); ri++) {
+          const rowEntry = rowsObj?.[String(ri)] || {};
+          const cellsEntry = rowEntry?.cells;
+          let rowArr: string[] = [];
+
+          if (Array.isArray(cellsEntry)) {
+            rowArr = cellsEntry.map((cell: any, idx: number) => {
+              const text = cell?.text ?? "";
+              let t = String(text);
+              t = fixMojibake(t);
+              t = fixCellConcatenation(t);
+              return t;
+            });
+            maxCols = Math.max(maxCols, rowArr.length);
+          } else if (cellsEntry && typeof cellsEntry === "object") {
+            const colKeys = Object.keys(cellsEntry);
+            const numericCols = colKeys
+              .map((k) => Number(k))
+              .filter((n) => !isNaN(n));
+            const rowMaxCol = numericCols.reduce((m, n) => Math.max(m, n), -1);
+            const colsCount = Math.max(rowMaxCol + 1, declaredColsLen);
+            rowArr = new Array(colsCount).fill("");
+            for (const ck of colKeys) {
+              const ci = Number(ck);
+              const text = cellsEntry[ck]?.text ?? "";
+              let t = String(text);
+              t = fixMojibake(t);
+              t = fixCellConcatenation(t);
+              if (!isNaN(ci)) rowArr[ci] = t;
+            }
+            maxCols = Math.max(maxCols, rowArr.length);
+          } else {
+            rowArr = new Array(Math.max(declaredColsLen, 1)).fill("");
+            maxCols = Math.max(maxCols, rowArr.length);
+          }
+
+          grid.push(rowArr);
+        }
+
+        const cols = maxCols;
+        return { rows: grid, cols, sheetName };
+      } catch (e) {
+        console.warn("[FileEditScreenExcel] Error parseando JSON de Excel:", e);
+        return null;
+      }
+    }
+
     const rawContent = editorContent?.content || "";
-    // Detectar si parece base64; en caso contrario intentar binario y fallback a array
     const treatAsBase64 = isProbablyBase64(rawContent);
     try {
       let wb: XLSX.WorkBook | null = null;
       if (treatAsBase64) {
         const cleaned = sanitizeBase64Input(rawContent);
-        if (!cleaned || cleaned.length < 128) return null; // demasiado corto para ser un XLSX
+        if (!cleaned || cleaned.length < 128) return null;
         try {
-          // Convertir base64 a Uint8Array para lectura uniforme
           const bytes = decodeBase64ToBytes(cleaned);
           wb = XLSX.read(bytes, {
             type: "array",
@@ -224,7 +296,6 @@ const ExcelEditor = forwardRef<ExcelEditorHandle, Props>(function ExcelEditor(
           return null;
         }
       } else {
-        // Intentar lectura como cadena binaria convertida a bytes
         try {
           const s = rawContent || "";
           const len = s.length;
@@ -246,8 +317,6 @@ const ExcelEditor = forwardRef<ExcelEditorHandle, Props>(function ExcelEditor(
 
       const sheetName = wb.SheetNames[0];
       const ws = wb.Sheets[sheetName];
-
-      // Usar sheet_to_csv en lugar de sheet_to_json para mejor preservación de celdas
       const csv = XLSX.utils.sheet_to_csv(ws, {
         FS: ",",
         RS: "\n",
@@ -255,13 +324,11 @@ const ExcelEditor = forwardRef<ExcelEditorHandle, Props>(function ExcelEditor(
         skipHidden: true,
       });
 
-      // Parsear el CSV manualmente para obtener una matriz precisa de celdas
       const aoa: any[][] = [];
       const lines = csv.split("\n");
       for (const line of lines) {
         if (line.trim() === "") continue;
         const cells = line.split(",").map((cell) => {
-          // Remover comillas alrededor de celdas que las tengan
           let value = cell.trim();
           if (value.startsWith('"') && value.endsWith('"')) {
             value = value.slice(1, -1);
@@ -271,14 +338,11 @@ const ExcelEditor = forwardRef<ExcelEditorHandle, Props>(function ExcelEditor(
         aoa.push(cells);
       }
 
-      // Aplicar corrección de mojibake a todas las celdas
       const rows = aoa.map((row) =>
         row.map((cell) => {
           if (cell === undefined || cell === null) return "";
           let cellText = String(cell);
-          // Primero corregir mojibake (caracteres incorrectos)
           cellText = fixMojibake(cellText);
-          // Luego corregir concatenaciones entre celdas
           cellText = fixCellConcatenation(cellText);
           return cellText;
         })
@@ -290,7 +354,7 @@ const ExcelEditor = forwardRef<ExcelEditorHandle, Props>(function ExcelEditor(
       console.warn("[FileEditScreenExcel] Error parseando XLSX:", e);
       return null;
     }
-  }, [isExcel, editorContent?.content]);
+  }, [isExcel, editorContent?.content, initialDataJson]);
 
   const [grid, setGrid] = useState<string[][]>(tableData?.rows || []);
   const [cols, setCols] = useState<number>(tableData?.cols || 0);
@@ -376,13 +440,12 @@ const ExcelEditor = forwardRef<ExcelEditorHandle, Props>(function ExcelEditor(
         <Text style={styles.msg}>No se pudo leer el contenido del Excel</Text>
         {/* Mostrar el cuerpo de la respuesta del endpoint si está disponible */}
         <Text style={{ marginTop: 12, color: "#888", fontSize: 12 }}>
-          {typeof editorContent?.content === "string" &&
-          editorContent?.content?.length === 0
+          {initialDataJson
+            ? `JSON recibido: ${JSON.stringify(initialDataJson).slice(0, 1000)}`
+            : typeof editorContent?.content === "string" &&
+              editorContent?.content?.length === 0
             ? "Respuesta vacía del endpoint."
-            : `Cuerpo recibido: ${JSON.stringify(editorContent?.content).slice(
-                0,
-                1000
-              )}`}
+            : `Cuerpo recibido: ${JSON.stringify(editorContent?.content).slice(0, 1000)}`}
         </Text>
       </View>
     );

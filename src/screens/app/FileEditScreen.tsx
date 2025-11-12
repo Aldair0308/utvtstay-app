@@ -86,6 +86,7 @@ const FileEditScreen: React.FC = () => {
   // Estado para visualización de Excel
   const [isExcelView, setIsExcelView] = useState(false);
   const [excelDataBase64, setExcelDataBase64] = useState<string | null>(null);
+  const [excelInitialJson, setExcelInitialJson] = useState<any | null>(null);
   const excelEditorRef = useRef<ExcelEditorHandle | null>(null);
 
   // Refs para mantener el foco del WebView
@@ -683,6 +684,47 @@ const FileEditScreen: React.FC = () => {
           setHasChanges(false);
           return; // ya cargamos contenido editable en WebView
         }
+        // Excel JSON estructurado
+        const excelJsonSheets = Array.isArray(editorResponse?.content)
+          ? { content: editorResponse.content }
+          : Array.isArray((editorResponse as any)?.data?.content)
+          ? { content: (editorResponse as any).data.content }
+          : null;
+
+        if (excelJsonSheets) {
+          const editorContent: EditorContent = {
+            file: {
+              id: fileId,
+              name: editorResponse?.file?.name || "Archivo",
+              type:
+                editorResponse?.file?.type ||
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+              size: 0,
+              is_word: false,
+              is_excel: true,
+              is_pdf: false,
+              editable: false,
+            },
+            content: {
+              type: "excel",
+              data: "",
+              editable: false,
+              message: editorResponse?.content?.message,
+            },
+            version: editorResponse?.version || 1,
+            total_versions: editorResponse?.total_versions || 1,
+            last_modified:
+              editorResponse?.last_modified || new Date().toISOString(),
+          };
+
+          setExcelInitialJson(excelJsonSheets);
+          setExcelDataBase64(null);
+          setIsExcelView(true);
+          setEditorData(editorContent);
+          setHasChanges(false);
+          return;
+        }
+
         // Caso: Excel (solo visualización)
         if (
           editorResponse?.file?.is_excel ||
@@ -1426,6 +1468,7 @@ const FileEditScreen: React.FC = () => {
                   editorData?.file?.type ||
                   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
               }}
+              initialDataJson={excelInitialJson || undefined}
               onChange={() => setHasChanges(true)}
             />
           </View>
