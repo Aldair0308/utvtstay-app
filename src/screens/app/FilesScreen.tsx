@@ -16,6 +16,7 @@ import { theme } from '../../theme';
 import LoadingScreen from '../../components/common/LoadingScreen';
 import CustomAlert from '../../components/common/CustomAlert';
 import useAlert from '../../hooks/useAlert';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 type FilesNavigationProp = StackNavigationProp<AppStackParamList, 'Files'>;
 
@@ -84,14 +85,38 @@ const FilesScreen: React.FC = () => {
     navigation.navigate('FileDetail', { fileId: file.id });
   };
 
-  const getFileIcon = (mimeType: string) => {
-    if (!mimeType) return '📁';
-    if (mimeType.includes('pdf')) return '📄';
-    if (mimeType.includes('image')) return '🖼️';
-    if (mimeType.includes('video')) return '🎥';
-    if (mimeType.includes('audio')) return '🎵';
-    if (mimeType.includes('text')) return '📝';
-    return '📁';
+  const getFileIconInfo = (file: File) => {
+    const name = (file.name || '').toLowerCase();
+    const mime = (file.mimeType || '').toLowerCase();
+
+    if (
+      name.endsWith('.doc') ||
+      name.endsWith('.docx') ||
+      mime.includes('msword') ||
+      mime.includes('wordprocessingml')
+    ) {
+      return { name: 'file-word-outline', color: '#2B579A' };
+    }
+
+    if (
+      name.endsWith('.xls') ||
+      name.endsWith('.xlsx') ||
+      mime.includes('excel') ||
+      mime.includes('spreadsheetml')
+    ) {
+      return { name: 'file-excel-outline', color: '#217346' };
+    }
+
+    if (name.endsWith('.html') || name.endsWith('.htm') || mime.includes('html')) {
+      return { name: 'language-html5', color: '#E34F26' };
+    }
+
+    if (mime.includes('pdf')) return { name: 'file-pdf-box', color: '#D32F2F' };
+    if (mime.includes('image')) return { name: 'file-image-outline', color: theme.colors.textSecondary };
+    if (mime.includes('video')) return { name: 'file-video-outline', color: theme.colors.textSecondary };
+    if (mime.includes('audio')) return { name: 'file-music-outline', color: theme.colors.textSecondary };
+    if (mime.includes('text')) return { name: 'file-document-outline', color: theme.colors.textSecondary };
+    return { name: 'file-outline', color: theme.colors.textSecondary };
   };
 
   const getStatusColor = (status: string) => {
@@ -105,43 +130,44 @@ const FilesScreen: React.FC = () => {
     }
   };
 
-  const renderFileItem = ({ item }: { item: File }) => (
-    <TouchableOpacity
-      style={styles.fileItem}
-      onPress={() => handleFilePress(item)}
-    >
-      <View style={styles.fileIcon}>
-        <Text style={styles.fileIconText}>{getFileIcon(item.mimeType)}</Text>
-      </View>
-      
-      <View style={styles.fileInfo}>
-        <Text style={styles.fileName} numberOfLines={1}>
-          {item.name}
-        </Text>
-        {item.description && (
-          <Text style={styles.fileDescription} numberOfLines={2}>
-            {item.description}
-          </Text>
-        )}
-        <View style={styles.fileMetadata}>
-          <Text style={styles.fileDate}>
-            {new Date(item.updatedAt).toLocaleDateString()}
-          </Text>
-          <Text style={styles.fileSize}>
-            {(item.size / 1024).toFixed(1)} KB
-          </Text>
+  const renderFileItem = ({ item }: { item: File }) => {
+    const icon = getFileIconInfo(item);
+    return (
+      <TouchableOpacity
+        style={styles.fileItem}
+        onPress={() => handleFilePress(item)}
+      >
+        <View style={styles.fileIcon}>
+          <MaterialCommunityIcons name={icon.name} size={24} color={icon.color} />
         </View>
-      </View>
-      
-      <View style={styles.fileActions}>
-        <View style={[
-          styles.statusIndicator,
-          { backgroundColor: getStatusColor(item.status) }
-        ]} />
-        <Text style={styles.chevron}>›</Text>
-      </View>
-    </TouchableOpacity>
-  );
+        <View style={styles.fileInfo}>
+          <Text style={styles.fileName} numberOfLines={1}>
+            {item.name}
+          </Text>
+          {item.description && (
+            <Text style={styles.fileDescription} numberOfLines={2}>
+              {item.description}
+            </Text>
+          )}
+          <View style={styles.fileMetadata}>
+            <Text style={styles.fileDate}>
+              {new Date(item.updatedAt).toLocaleDateString()}
+            </Text>
+            <Text style={styles.fileSize}>
+              {(item.size / 1024).toFixed(1)} KB
+            </Text>
+          </View>
+        </View>
+        <View style={styles.fileActions}>
+          <View style={[
+            styles.statusIndicator,
+            { backgroundColor: getStatusColor(item.status) }
+          ]} />
+          <Text style={styles.chevron}>›</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   const renderFilterButton = (filter: 'all' | 'active' | 'inactive', label: string) => (
     <TouchableOpacity
@@ -289,9 +315,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: theme.spacing.md,
-  },
-  fileIconText: {
-    fontSize: 20,
   },
   fileInfo: {
     flex: 1,

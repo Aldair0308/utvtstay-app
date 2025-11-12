@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,17 +9,23 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Dimensions,
-} from 'react-native';
-import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { Ionicons } from '@expo/vector-icons';
-import { WebView } from 'react-native-webview';
-import { filesService } from '../../services/files';
-import { colors, spacing, typography } from '../../theme';
-import { AppStackParamList } from '../../interfaces';
+} from "react-native";
+import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
+import { StackNavigationProp } from "@react-navigation/stack";
+import { Ionicons } from "@expo/vector-icons";
+import { WebView } from "react-native-webview";
+import { filesService } from "../../services/files";
+import { colors, spacing, typography } from "../../theme";
+import { AppStackParamList } from "../../interfaces";
 
-type FileContentViewerRouteProp = RouteProp<AppStackParamList, 'FileContentViewer'>;
-type FileContentViewerNavigationProp = StackNavigationProp<AppStackParamList, 'FileContentViewer'>;
+type FileContentViewerRouteProp = RouteProp<
+  AppStackParamList,
+  "FileContentViewer"
+>;
+type FileContentViewerNavigationProp = StackNavigationProp<
+  AppStackParamList,
+  "FileContentViewer"
+>;
 
 interface ContentData {
   content: string;
@@ -70,13 +76,13 @@ const FileContentViewer: React.FC = () => {
         // Obtener contenido del archivo actual
         contentData = await filesService.getFileContent(fileId);
       } else {
-        throw new Error('No se proporcionó ID de archivo o cambio');
+        throw new Error("No se proporcionó ID de archivo o cambio");
       }
 
       setContent(contentData);
     } catch (error) {
-      console.error('Error loading content:', error);
-      Alert.alert('Error', 'No se pudo cargar el contenido del archivo');
+      console.error("Error loading content:", error);
+      Alert.alert("Error", "No se pudo cargar el contenido del archivo");
     } finally {
       setLoading(false);
     }
@@ -86,13 +92,16 @@ const FileContentViewer: React.FC = () => {
     if (!content) return null;
 
     const { content: fileContent, mimeType, html, content_type } = content;
-    const screenHeight = Dimensions.get('window').height;
 
     // Si hay HTML disponible o el contenido es HTML, usar WebView
-    if (html || content_type === 'html' || (mimeType && mimeType.includes('html'))) {
+    if (
+      html ||
+      content_type === "html" ||
+      (mimeType && mimeType.includes("html"))
+    ) {
       const htmlContent = html || fileContent;
       return (
-        <View style={[styles.webViewContainer, { height: screenHeight - 120 }]}>
+        <View style={styles.editorCard}>
           <WebView
             source={{ html: htmlContent }}
             style={styles.webView}
@@ -110,26 +119,36 @@ const FileContentViewer: React.FC = () => {
     }
 
     // Determinar si es texto plano
-    const isTextContent = mimeType && (
-      mimeType.startsWith('text/') || 
-      mimeType === 'application/json' ||
-      mimeType === 'application/javascript' ||
-      mimeType === 'application/xml'
-    );
+    const isTextContent =
+      mimeType &&
+      (mimeType.startsWith("text/") ||
+        mimeType === "application/json" ||
+        mimeType === "application/javascript" ||
+        mimeType === "application/xml");
 
     if (isTextContent) {
       return (
-        <ScrollView style={styles.contentContainer}>
-          <Text style={styles.contentText}>{fileContent}</Text>
-        </ScrollView>
+        <View style={styles.editorCard}>
+          <ScrollView
+            style={styles.editorScroll}
+            contentContainerStyle={styles.textScrollContent}
+          >
+            <Text style={styles.contentText}>{fileContent}</Text>
+          </ScrollView>
+        </View>
       );
     } else {
       return (
         <View style={styles.nonTextContainer}>
-          <Ionicons name="document-outline" size={64} color={colors.text.secondary} />
+          <Ionicons
+            name="document-outline"
+            size={64}
+            color={colors.text.secondary}
+          />
           <Text style={styles.nonTextTitle}>Archivo no compatible</Text>
           <Text style={styles.nonTextSubtitle}>
-            Este tipo de archivo ({mimeType || 'desconocido'}) no se puede visualizar en la aplicación.
+            Este tipo de archivo ({mimeType || "desconocido"}) no se puede
+            visualizar en la aplicación.
           </Text>
         </View>
       );
@@ -147,9 +166,7 @@ const FileContentViewer: React.FC = () => {
             <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{title}</Text>
-          {version && (
-            <Text style={styles.versionBadge}>v{version}</Text>
-          )}
+          {version && <Text style={styles.versionBadge}>v{version}</Text>}
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -169,13 +186,15 @@ const FileContentViewer: React.FC = () => {
           <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {title}
+          </Text>
           {version && (
             <Text style={styles.versionBadge}>Versión {version}</Text>
           )}
         </View>
       </View>
-      
+
       <View style={styles.contentWrapper}>
         {content && (
           <View style={styles.mimeTypeInfo}>
@@ -194,15 +213,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background.primary,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     backgroundColor: colors.background.secondary,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -226,8 +245,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingText: {
     marginTop: spacing.md,
@@ -236,6 +255,8 @@ const styles = StyleSheet.create({
   },
   contentWrapper: {
     flex: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
   },
   mimeTypeInfo: {
     paddingHorizontal: spacing.md,
@@ -247,22 +268,24 @@ const styles = StyleSheet.create({
   mimeTypeText: {
     fontSize: typography.fontSize.sm,
     color: colors.text.secondary,
-    fontFamily: 'monospace',
+    fontFamily: "monospace",
   },
-  contentContainer: {
+  editorScroll: {
     flex: 1,
+  },
+  textScrollContent: {
     padding: spacing.md,
   },
   contentText: {
     fontSize: typography.fontSize.base,
     lineHeight: typography.fontSize.base * 1.5,
     color: colors.text.primary,
-    fontFamily: 'monospace',
+    fontFamily: "monospace",
   },
   nonTextContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: spacing.xl,
   },
   nonTextTitle: {
@@ -270,37 +293,37 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.semibold,
     color: colors.text.primary,
     marginTop: spacing.md,
-    textAlign: 'center',
+    textAlign: "center",
   },
   nonTextSubtitle: {
     fontSize: typography.fontSize.base,
     color: colors.text.secondary,
     marginTop: spacing.sm,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: typography.fontSize.base * 1.4,
   },
-  webViewContainer: {
+  editorCard: {
     flex: 1,
-    backgroundColor: colors.background.primary,
+    backgroundColor: colors.background.secondary,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: "hidden",
+    elevation: 2,
   },
   webView: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
   },
   webViewLoading: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     backgroundColor: colors.background.primary,
-  },
-  loadingText: {
-    marginTop: spacing.sm,
-    fontSize: 16,
-    color: colors.text.secondary,
   },
 });
 

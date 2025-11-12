@@ -375,7 +375,13 @@ export const filesService = {
       });
   
       if (response.data.success && response.data.data) {
-        return response.data.data;
+        // Adjuntar cuerpo crudo para depuración en pantallas que lo requieran
+        try {
+          const rawBody = JSON.stringify(response.data);
+          return { ...response.data.data, __rawResponse: rawBody };
+        } catch {
+          return response.data.data;
+        }
       }
   
       throw new Error("Error al obtener contenido del editor");
@@ -554,6 +560,57 @@ export const filesService = {
       );
     } catch (error) {
       console.error("Error en getFileContent:", error);
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  /**
+   * Actualizar contenido de un archivo con tipo MIME específico
+   */
+  updateFileContentWithMime: async (
+    fileId: string, 
+    content: string, 
+    mimeType: string = 'text/plain'
+  ): Promise<File> => {
+    try {
+      const response = await apiClient.post<ApiResponse<File>>(
+        `/files/${fileId}/content`,
+        {
+          content,
+          mime_type: mimeType
+        }
+      );
+
+      if (response.data.success && response.data.data) {
+        const file = response.data.data;
+
+        // Mapear la respuesta de la API al formato esperado por la interfaz
+        return {
+          id: file.id?.toString() || file.id,
+          name: file.name || "",
+          content: file.content || "",
+          description: file.description || file.tutor_observations || "",
+          version: file.version || 1,
+          status: file.status || "pending",
+          createdAt:
+            file.created_at || file.createdAt || new Date().toISOString(),
+          updatedAt:
+            file.updated_at || file.updatedAt || new Date().toISOString(),
+          studentId: file.student_id || file.studentId || 0,
+          mimeType:
+            file.mime_type ||
+            file.mimeType ||
+            file.file_type ||
+            "application/octet-stream",
+          fileType: file.file_type || file.fileType || "unknown",
+          size: file.size || 0,
+          tutorObservations: file.tutor_observations || file.tutorObservations,
+        };
+      }
+
+      throw new Error(ERROR_MESSAGES.FILE_UPDATE_ERROR);
+    } catch (error) {
+      console.error("Error en updateFileContentWithMime:", error);
       throw new Error(handleApiError(error));
     }
   },

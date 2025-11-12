@@ -15,7 +15,9 @@ import {
   Platform,
 } from "react-native";
 import { WebView } from "react-native-webview";
-import ExcelEditor, { ExcelEditorHandle } from "../../components/FileEditScreenExcel";
+import ExcelEditor, {
+  ExcelEditorHandle,
+} from "../../components/FileEditScreenExcel";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -30,10 +32,10 @@ import { filesService } from "../../services/files";
 import { useTheme } from "../../context/ThemeContext";
 import { theme } from "../../theme";
 
- type AppStackParamList = {
-   FileEdit: { fileId: string; initialContent?: string };
-   FileHistory: { fileId: string; fileName: string };
- };
+type AppStackParamList = {
+  FileEdit: { fileId: string; initialContent?: string };
+  FileHistory: { fileId: string; fileName: string };
+};
 
 type FileEditNavigationProp = StackNavigationProp<
   AppStackParamList,
@@ -76,9 +78,11 @@ const FileEditScreen: React.FC = () => {
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   // Mensaje de estado para mostrar errores/éxitos de la API en web
   const [saveStatusMessage, setSaveStatusMessage] = useState<{
-    type: 'error' | 'success' | 'info';
+    type: "error" | "success" | "info";
     text: string;
   } | null>(null);
+  // Mensajes informativos/diagnóstico para mostrar cuerpo crudo de API u observaciones
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   // Estado para visualización de Excel
   const [isExcelView, setIsExcelView] = useState(false);
   const [excelDataBase64, setExcelDataBase64] = useState<string | null>(null);
@@ -117,7 +121,7 @@ const FileEditScreen: React.FC = () => {
   useEffect(() => {
     // Configurar el header con botón de guardar (solo para contenido editable)
     navigation.setOptions({
-      headerRight: () => (
+      headerRight: () =>
         isExcelView ? null : (
           <TouchableOpacity
             onPress={handleSave}
@@ -133,8 +137,7 @@ const FileEditScreen: React.FC = () => {
               {saving ? "Guardando..." : "Guardar"}
             </Text>
           </TouchableOpacity>
-        )
-      ),
+        ),
     });
   }, [navigation, saving, hasChanges, isExcelView]);
 
@@ -376,7 +379,7 @@ const FileEditScreen: React.FC = () => {
 
   // HTML para visualizar Excel (solo lectura)
   const excelHtml = useMemo(() => {
-    const base64 = excelDataBase64 || '';
+    const base64 = excelDataBase64 || "";
     return `
     <!DOCTYPE html>
     <html>
@@ -621,9 +624,37 @@ const FileEditScreen: React.FC = () => {
         const editorResponse = await filesService.getEditorContent(
           fileId.toString()
         );
+        // Guardar cuerpo crudo para diagnóstico si es provisto
+        const rawBodyStr =
+          editorResponse && editorResponse.__rawResponse
+            ? String(editorResponse.__rawResponse)
+            : null;
+        // Truncar para evitar UI extensa
+        const rawPreview = rawBodyStr
+          ? rawBodyStr.length > 1500
+            ? rawBodyStr.slice(0, 1500) + "..."
+            : rawBodyStr
+          : null;
+        // Estado opcional de diagnóstico en pantalla
+        // Nota: mostramos este mensaje cuando el contenido no sea editable y antes del fallback
 
         // Caso: contenido HTML editable (Word)
-        if (editorResponse?.content?.editable && (editorResponse.content.type === "html" || editorResponse.content.type?.includes("html"))) {
+        // Ampliar tolerancia: aceptar si el archivo es Word y trae HTML aunque no marque editable
+        const isWordFlag =
+          !!editorResponse?.file?.is_word ||
+          /word|docx|msword/i.test(String(editorResponse?.file?.type || ""));
+        const hasHtmlType =
+          editorResponse?.content?.type === "html" ||
+          String(editorResponse?.content?.type || "").includes("html") ||
+          String(editorResponse?.content?.type || "").includes("text/html");
+        const hasHtmlData =
+          typeof editorResponse?.content?.data === "string" &&
+          editorResponse?.content?.data.trim().startsWith("<");
+        const isEditableWord =
+          (editorResponse?.content?.editable && hasHtmlType) ||
+          (isWordFlag && (hasHtmlType || hasHtmlData));
+
+        if (isEditableWord) {
           const editorContent: EditorContent = {
             file: {
               id: fileId,
@@ -653,18 +684,26 @@ const FileEditScreen: React.FC = () => {
           return; // ya cargamos contenido editable en WebView
         }
         // Caso: Excel (solo visualización)
-        if (editorResponse?.file?.is_excel || editorResponse?.content?.type === 'excel') {
+        if (
+          editorResponse?.file?.is_excel ||
+          editorResponse?.content?.type === "excel"
+        ) {
           try {
-            const contentData = await filesService.getFileContent(fileId.toString());
+            const contentData = await filesService.getFileContent(
+              fileId.toString()
+            );
             // Se espera contenido en base64 del XLSX
-            const excelBase64 = contentData?.content || '';
+            const excelBase64 = contentData?.content || "";
 
-            const approxBytes = Math.floor((excelBase64 || '').length * 0.75);
+            const approxBytes = Math.floor((excelBase64 || "").length * 0.75);
             const editorContent: EditorContent = {
               file: {
                 id: fileId,
                 name: editorResponse.file?.name || "Archivo",
-                type: editorResponse.file?.type || contentData?.mimeType || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                type:
+                  editorResponse.file?.type ||
+                  contentData?.mimeType ||
+                  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 size: approxBytes,
                 is_word: false,
                 is_excel: true,
@@ -672,14 +711,15 @@ const FileEditScreen: React.FC = () => {
                 editable: false,
               },
               content: {
-                type: 'excel',
+                type: "excel",
                 data: excelBase64,
                 editable: false,
                 message: editorResponse?.content?.message,
               },
               version: editorResponse.version || 1,
               total_versions: editorResponse.total_versions || 1,
-              last_modified: editorResponse.last_modified || new Date().toISOString(),
+              last_modified:
+                editorResponse.last_modified || new Date().toISOString(),
             };
 
             setExcelDataBase64(excelBase64);
@@ -688,21 +728,31 @@ const FileEditScreen: React.FC = () => {
             setHasChanges(false);
             return; // cargamos visor de Excel
           } catch (excelError) {
-            console.warn('[FileEditScreen] Error cargando contenido Excel:', excelError);
-            const nonEditableMsg = editorResponse?.content?.message || 'Este archivo no es editable en la aplicación móvil.';
-            Alert.alert('Vista de Excel no disponible', nonEditableMsg, [
-              { text: 'OK', onPress: () => navigation.goBack() },
+            console.warn(
+              "[FileEditScreen] Error cargando contenido Excel:",
+              excelError
+            );
+            const nonEditableMsg =
+              editorResponse?.content?.message ||
+              "Este archivo no es editable en la aplicación móvil.";
+            Alert.alert("Vista de Excel no disponible", nonEditableMsg, [
+              { text: "OK", onPress: () => navigation.goBack() },
             ]);
             return;
           }
         }
 
-        // No editable y no Excel, mostrar aviso y salir
-        const nonEditableMsg = editorResponse?.content?.message || "Este archivo no es editable en la aplicación móvil.";
-        Alert.alert("Archivo no editable", nonEditableMsg, [
-          { text: "OK", onPress: () => navigation.goBack() },
-        ]);
-        return;
+        // No editable y no Excel: activar fallback a getFileContent y mostrar diagnóstico en pantalla
+        if (rawPreview) {
+          // Mostrar una banda informativa arriba (usaremos statusMessageContainer existente)
+          setStatusMessage(
+            "Editor-content devolvió no editable; activando fallback. Respuesta: " +
+              rawPreview
+          );
+        }
+        console.warn(
+          "[FileEditScreen] Editor-content no proporcionó contenido editable. Activando fallback a getFileContent."
+        );
       } catch (editorError) {
         console.warn(
           "[FileEditScreen] No fue posible cargar editor-content, usando fallback:",
@@ -711,43 +761,62 @@ const FileEditScreen: React.FC = () => {
       }
 
       // Fallback: evitar /editor-content para Excel; obtener contenido directo del archivo
-      let content = '';
-      let mimeType = 'application/octet-stream';
+      let content = "";
+      let mimeType = "application/octet-stream";
       try {
-        const contentData = await filesService.getFileContent(fileId.toString());
-        mimeType = contentData?.mimeType || 'application/octet-stream';
-        const excelMime = (
-          mimeType?.includes('spreadsheetml') ||
-          mimeType?.includes('ms-excel') ||
-          mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        const contentData = await filesService.getFileContent(
+          fileId.toString()
         );
+        mimeType = contentData?.mimeType || "application/octet-stream";
+        const excelMime =
+          mimeType?.includes("spreadsheetml") ||
+          mimeType?.includes("ms-excel") ||
+          mimeType ===
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
         // Para Excel, usar SIEMPRE el contenido base64 del archivo; para otros tipos, preferir HTML si existe
-        content = excelMime ? (contentData?.content || '') : (contentData?.html || contentData?.content || '');
+        content = excelMime
+          ? contentData?.content || ""
+          : contentData?.html || contentData?.content || "";
       } catch (contentErr) {
-        console.warn('[FileEditScreen] Error en getFileContent, intentando historial:', contentErr);
+        console.warn(
+          "[FileEditScreen] Error en getFileContent, intentando historial:",
+          contentErr
+        );
         try {
           const fileHistory = await filesService.getFileHistory(fileId);
           if (fileHistory && fileHistory.length > 0) {
             const mappedHistory = fileHistory.map((item, index) => ({
               id: item.id.toString(),
               version: item.version,
-              isCurrentVersion: index === 0
+              isCurrentVersion: index === 0,
             }));
-            const sortedHistory = mappedHistory.sort((a, b) => b.version - a.version);
-            const currentVersion = sortedHistory[0];
-            console.log('[FileEditScreen] Versión actual encontrada:', { version: currentVersion.version, id: currentVersion.id });
-            // Evitar llamar a /file-changes/... para Excel conocido; preferir contenido directo
-            const contentData = await filesService.getFileContent(fileId.toString());
-            mimeType = contentData?.mimeType || 'application/octet-stream';
-            const excelMime2 = (
-              mimeType?.includes('spreadsheetml') ||
-              mimeType?.includes('ms-excel') ||
-              mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            const sortedHistory = mappedHistory.sort(
+              (a, b) => b.version - a.version
             );
-            content = excelMime2 ? (contentData?.content || '') : (contentData?.html || contentData?.content || '');
+            const currentVersion = sortedHistory[0];
+            console.log("[FileEditScreen] Versión actual encontrada:", {
+              version: currentVersion.version,
+              id: currentVersion.id,
+            });
+            // Evitar llamar a /file-changes/... para Excel conocido; preferir contenido directo
+            const contentData = await filesService.getFileContent(
+              fileId.toString()
+            );
+            mimeType = contentData?.mimeType || "application/octet-stream";
+            const excelMime2 =
+              mimeType?.includes("spreadsheetml") ||
+              mimeType?.includes("ms-excel") ||
+              mimeType ===
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            content = excelMime2
+              ? contentData?.content || ""
+              : contentData?.html || contentData?.content || "";
           }
         } catch (historyError) {
-          console.warn('[FileEditScreen] Fallback final sin historial:', historyError);
+          console.warn(
+            "[FileEditScreen] Fallback final sin historial:",
+            historyError
+          );
         }
       }
 
@@ -759,6 +828,10 @@ const FileEditScreen: React.FC = () => {
 
       // Verificar si el archivo tiene contenido editable
       if (!content) {
+        // Mostrar el cuerpo crudo si estaba disponible y no hay contenido
+        setStatusMessage(
+          "No hay contenido disponible tras fallback. Revisa el cuerpo del API en los logs."
+        );
         Alert.alert(
           "Archivo sin contenido",
           "Este archivo no tiene contenido disponible para editar.",
@@ -771,10 +844,11 @@ const FileEditScreen: React.FC = () => {
       const isExcelMime =
         mimeType?.includes("spreadsheetml") ||
         mimeType?.includes("ms-excel") ||
-        mimeType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        mimeType ===
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
       if (isExcelMime) {
-        const approxBytes = Math.floor((content || '').length * 0.75);
+        const approxBytes = Math.floor((content || "").length * 0.75);
         const editorContentExcel: EditorContent = {
           file: {
             id: fileId,
@@ -857,7 +931,12 @@ const FileEditScreen: React.FC = () => {
         hasChanges,
         reason: !fileId ? "No fileId" : "No changes",
       });
-      setSaveStatusMessage({ type: 'info', text: !fileId ? 'No existe archivo seleccionado' : 'No hay cambios para guardar' });
+      setSaveStatusMessage({
+        type: "info",
+        text: !fileId
+          ? "No existe archivo seleccionado"
+          : "No hay cambios para guardar",
+      });
       return;
     }
 
@@ -870,12 +949,17 @@ const FileEditScreen: React.FC = () => {
 
       // Protección: evitar enviar contenido vacío al endpoint
       if (!htmlContent || htmlContent.trim().length === 0) {
-        console.warn('[FileEditScreen] Intento de guardado con contenido vacío, abortando.');
-        setSaveStatusMessage({ type: 'error', text: 'Contenido vacío: no se puede guardar. Verifica el contenido antes de guardar.' });
+        console.warn(
+          "[FileEditScreen] Intento de guardado con contenido vacío, abortando."
+        );
+        setSaveStatusMessage({
+          type: "error",
+          text: "Contenido vacío: no se puede guardar. Verifica el contenido antes de guardar.",
+        });
         return;
       }
 
-      setSaveStatusMessage({ type: 'info', text: 'Guardando...' });
+      setSaveStatusMessage({ type: "info", text: "Guardando..." });
       setSaving(true);
 
       // Verificar token antes de guardar
@@ -894,7 +978,10 @@ const FileEditScreen: React.FC = () => {
       console.log("[FileEditScreen] Archivo guardado exitosamente");
 
       setHasChanges(false);
-      setSaveStatusMessage({ type: 'success', text: 'Archivo guardado correctamente' });
+      setSaveStatusMessage({
+        type: "success",
+        text: "Archivo guardado correctamente",
+      });
     } catch (error: any) {
       console.error("[FileEditScreen] Error saving file:", {
         fileId: fileId.toString(),
@@ -902,7 +989,10 @@ const FileEditScreen: React.FC = () => {
         status: error.response?.status,
         timestamp: new Date().toISOString(),
       });
-      setSaveStatusMessage({ type: 'error', text: error.message || 'No se pudo guardar el archivo' });
+      setSaveStatusMessage({
+        type: "error",
+        text: error.message || "No se pudo guardar el archivo",
+      });
     } finally {
       setSaving(false);
     }
@@ -928,42 +1018,56 @@ const FileEditScreen: React.FC = () => {
   };
 
   // Guardado para Excel: recibe base64 generado en el WebView
-  const handleExcelSaveBase64 = async (excelBase64: string, versionMsg?: string, sheetName?: string) => {
+  const handleExcelSaveBase64 = async (
+    excelBase64: string,
+    versionMsg?: string,
+    sheetName?: string
+  ) => {
     try {
-      setSaveStatusMessage({ type: 'info', text: 'Guardando Excel...' });
+      setSaveStatusMessage({ type: "info", text: "Guardando Excel..." });
       setSaving(true);
       const token = await AsyncStorage.getItem("userToken");
-      console.log("[FileEditScreen] Token para guardado Excel:", token ? `${token.substring(0, 20)}...` : "No token");
+      console.log(
+        "[FileEditScreen] Token para guardado Excel:",
+        token ? `${token.substring(0, 20)}...` : "No token"
+      );
 
       // Protección: validar base64 antes de enviar
       if (!excelBase64 || excelBase64.trim().length === 0) {
-        console.warn('[FileEditScreen] Intento de guardado Excel con base64 vacío, abortando.');
-        setSaveStatusMessage({ type: 'error', text: 'El contenido de la hoja de cálculo está vacío. Genera el XLSX antes de guardar.' });
+        console.warn(
+          "[FileEditScreen] Intento de guardado Excel con base64 vacío, abortando."
+        );
+        setSaveStatusMessage({
+          type: "error",
+          text: "El contenido de la hoja de cálculo está vacío. Genera el XLSX antes de guardar.",
+        });
         setSaving(false);
         return;
       }
 
-      console.log('[FileEditScreen] Excel base64 length:', excelBase64.length);
+      console.log("[FileEditScreen] Excel base64 length:", excelBase64.length);
 
       // Respeta README_API_ENDPOINTS: Excel no se actualiza vía content-mobile; registrar cambio JSON
       const excelData = {
         excel_base64: excelBase64,
-        source: 'mobile_editor',
+        source: "mobile_editor",
         timestamp: new Date().toISOString(),
-        sheet_name: sheetName || 'Sheet1',
+        sheet_name: sheetName || "Sheet1",
       };
       const numericFileId = Number(fileId);
-      const resolvedFileId = isNaN(numericFileId) ? String(fileId) : numericFileId;
+      const resolvedFileId = isNaN(numericFileId)
+        ? String(fileId)
+        : numericFileId;
       const payload = {
         file_id: resolvedFileId,
-        change_type: 'json_data',
+        change_type: "json_data",
         position_start: 0,
         position_end: 0,
-        old_content: '',
+        old_content: "",
         data: excelData,
         // Enviar explícitamente new_content con el JSON serializado del objeto data
         new_content: JSON.stringify(excelData),
-        version_comment: versionMsg || 'Actualización Excel desde móvil',
+        version_comment: versionMsg || "Actualización Excel desde móvil",
       };
 
       const result = await filesService.registerFileChange(payload);
@@ -972,17 +1076,28 @@ const FileEditScreen: React.FC = () => {
       const newVersion = result?.version_number || result?.version;
       const nextTotal = (editorData?.total_versions || 0) + 1;
       if (newVersion) {
-        setEditorData(prev => prev ? {
-          ...prev,
-          version: Number(newVersion),
-          total_versions: nextTotal,
-          last_modified: new Date().toISOString(),
-        } : prev);
+        setEditorData((prev) =>
+          prev
+            ? {
+                ...prev,
+                version: Number(newVersion),
+                total_versions: nextTotal,
+                last_modified: new Date().toISOString(),
+              }
+            : prev
+        );
       }
 
-      console.log("[FileEditScreen] Excel guardado exitosamente", { newVersion });
+      console.log("[FileEditScreen] Excel guardado exitosamente", {
+        newVersion,
+      });
       setHasChanges(false);
-      setSaveStatusMessage({ type: 'success', text: newVersion ? `Se creó la versión ${newVersion}` : 'Cambios de Excel registrados correctamente' });
+      setSaveStatusMessage({
+        type: "success",
+        text: newVersion
+          ? `Se creó la versión ${newVersion}`
+          : "Cambios de Excel registrados correctamente",
+      });
     } catch (error: any) {
       console.error("[FileEditScreen] Error guardando Excel:", {
         fileId: fileId.toString(),
@@ -990,46 +1105,59 @@ const FileEditScreen: React.FC = () => {
         status: error.response?.status,
         timestamp: new Date().toISOString(),
       });
-      let message = error.message || 'No se pudo registrar el cambio de Excel';
-      if (message.includes('403')) {
-        message = 'No tienes permisos para registrar cambios en este archivo';
+      let message = error.message || "No se pudo registrar el cambio de Excel";
+      if (message.includes("403")) {
+        message = "No tienes permisos para registrar cambios en este archivo";
       }
-      setSaveStatusMessage({ type: 'error', text: message });
+      setSaveStatusMessage({ type: "error", text: message });
     } finally {
       setSaving(false);
     }
   };
 
   // Guardado para Excel con JSON estructurado (filas/celdas)
-  const handleExcelSaveData = async (excelDataJson: any, versionMsg?: string) => {
+  const handleExcelSaveData = async (
+    excelDataJson: any,
+    versionMsg?: string
+  ) => {
     try {
-      setSaveStatusMessage({ type: 'info', text: 'Guardando Excel...' });
+      setSaveStatusMessage({ type: "info", text: "Guardando Excel..." });
       setSaving(true);
       const token = await AsyncStorage.getItem("userToken");
-      console.log("[FileEditScreen] Token para guardado Excel:", token ? `${token.substring(0, 20)}...` : "No token");
+      console.log(
+        "[FileEditScreen] Token para guardado Excel:",
+        token ? `${token.substring(0, 20)}...` : "No token"
+      );
 
-      if (!excelDataJson || typeof excelDataJson !== 'object') {
-        console.warn('[FileEditScreen] Intento de guardado Excel con JSON inválido, abortando.');
-        setSaveStatusMessage({ type: 'error', text: 'El contenido de la hoja de cálculo está vacío o inválido.' });
+      if (!excelDataJson || typeof excelDataJson !== "object") {
+        console.warn(
+          "[FileEditScreen] Intento de guardado Excel con JSON inválido, abortando."
+        );
+        setSaveStatusMessage({
+          type: "error",
+          text: "El contenido de la hoja de cálculo está vacío o inválido.",
+        });
         setSaving(false);
         return;
       }
 
       const numericFileId = Number(fileId);
-      const resolvedFileId = isNaN(numericFileId) ? String(fileId) : numericFileId;
+      const resolvedFileId = isNaN(numericFileId)
+        ? String(fileId)
+        : numericFileId;
       const payload = {
         file_id: resolvedFileId,
-        change_type: 'json_data',
+        change_type: "json_data",
         position_start: 0,
         position_end: 0,
-        old_content: '',
+        old_content: "",
         data: excelDataJson,
         new_content: JSON.stringify(excelDataJson),
-        version_comment: versionMsg || 'Edición desde móvil',
+        version_comment: versionMsg || "Edición desde móvil",
         metadata: {
-          origin: 'mobile',
+          origin: "mobile",
           device: `${Platform.OS} ${Platform.Version}`,
-          app_version: '1.0.0',
+          app_version: "1.0.0",
         },
       };
 
@@ -1038,17 +1166,28 @@ const FileEditScreen: React.FC = () => {
       const newVersion = result?.version_number || result?.version;
       const nextTotal = (editorData?.total_versions || 0) + 1;
       if (newVersion) {
-        setEditorData(prev => prev ? {
-          ...prev,
-          version: Number(newVersion),
-          total_versions: nextTotal,
-          last_modified: new Date().toISOString(),
-        } : prev);
+        setEditorData((prev) =>
+          prev
+            ? {
+                ...prev,
+                version: Number(newVersion),
+                total_versions: nextTotal,
+                last_modified: new Date().toISOString(),
+              }
+            : prev
+        );
       }
 
-      console.log("[FileEditScreen] Excel guardado exitosamente", { newVersion });
+      console.log("[FileEditScreen] Excel guardado exitosamente", {
+        newVersion,
+      });
       setHasChanges(false);
-      setSaveStatusMessage({ type: 'success', text: newVersion ? `Se creó la versión ${newVersion}` : 'Cambios de Excel registrados correctamente' });
+      setSaveStatusMessage({
+        type: "success",
+        text: newVersion
+          ? `Se creó la versión ${newVersion}`
+          : "Cambios de Excel registrados correctamente",
+      });
     } catch (error: any) {
       console.error("[FileEditScreen] Error guardando Excel:", {
         fileId: fileId.toString(),
@@ -1056,11 +1195,11 @@ const FileEditScreen: React.FC = () => {
         status: error.response?.status,
         timestamp: new Date().toISOString(),
       });
-      let message = error.message || 'No se pudo registrar el cambio de Excel';
-      if (message.includes('403')) {
-        message = 'No tienes permisos para registrar cambios en este archivo';
+      let message = error.message || "No se pudo registrar el cambio de Excel";
+      if (message.includes("403")) {
+        message = "No tienes permisos para registrar cambios en este archivo";
       }
-      setSaveStatusMessage({ type: 'error', text: message });
+      setSaveStatusMessage({ type: "error", text: message });
     } finally {
       setSaving(false);
     }
@@ -1076,19 +1215,30 @@ const FileEditScreen: React.FC = () => {
           setHtmlContent(newContent);
           setHasChanges(true);
         }
-      } else if (message.type === 'excelChanged') {
+      } else if (message.type === "excelChanged") {
         setHasChanges(true);
-      } else if (message.type === 'excelSave') {
+      } else if (message.type === "excelSave") {
         if (message.base64) {
-          handleExcelSaveBase64(message.base64, 'Actualización Excel desde móvil', message.sheetName);
+          handleExcelSaveBase64(
+            message.base64,
+            "Actualización Excel desde móvil",
+            message.sheetName
+          );
         }
-      } else if (message.type === 'excelExport') {
+      } else if (message.type === "excelExport") {
         if (message.base64) {
-          handleExcelSaveBase64(message.base64, 'Exportado XLSX desde móvil', message.sheetName);
+          handleExcelSaveBase64(
+            message.base64,
+            "Exportado XLSX desde móvil",
+            message.sheetName
+          );
         }
-      } else if (message.type === 'excelError') {
-        setSaveStatusMessage({ type: 'error', text: message.message || 'Ocurrió un error en el editor Excel' });
-      } else if (message.type === 'excelImported') {
+      } else if (message.type === "excelError") {
+        setSaveStatusMessage({
+          type: "error",
+          text: message.message || "Ocurrió un error en el editor Excel",
+        });
+      } else if (message.type === "excelImported") {
         setHasChanges(true);
       } else if (message.type === "editorReady") {
         // El editor está listo, enviar el contenido inicial
@@ -1164,6 +1314,13 @@ const FileEditScreen: React.FC = () => {
   if (!editorData) {
     return (
       <SafeAreaView style={styles.container}>
+        {statusMessage ? (
+          <View style={styles.statusMessageContainer}>
+            <Text style={styles.statusMessageText} numberOfLines={10}>
+              {statusMessage}
+            </Text>
+          </View>
+        ) : null}
         <View style={styles.errorContainer}>
           <Ionicons
             name="document-outline"
@@ -1219,12 +1376,104 @@ const FileEditScreen: React.FC = () => {
   }
 
   const screenHeight = Dimensions.get("window").height;
+  const statusBarHeight = StatusBar.currentHeight || 0;
 
   return (
     <SafeAreaView style={styles.container}>
+      {statusMessage ? (
+        <View style={styles.statusMessageContainer}>
+          <Text style={styles.statusMessageText} numberOfLines={10}>
+            {statusMessage}
+          </Text>
+        </View>
+      ) : null}
+      {isExcelView ? (
+        <View style={styles.flexBody}>
+          {/* Header */}
+          <View style={styles.header}>
+            <TouchableOpacity style={styles.backButton} onPress={handleDiscard}>
+              <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+            </TouchableOpacity>
+
+            <View style={styles.headerContent}>
+              <Text style={styles.headerTitle} numberOfLines={1}>
+                {editorData.file.name}
+              </Text>
+              <Text style={styles.versionBadge}>
+                Versión {editorData.version} de {editorData.total_versions}
+              </Text>
+            </View>
+
+            <TouchableOpacity style={styles.historyButton} onPress={navigateToHistory}>
+              <Ionicons name="time-outline" size={24} color={theme.colors.text} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Editor Excel a pantalla completa */}
+          <View
+            style={[
+              styles.excelContainer,
+              styles.excelContainerFull,
+              { flex: 1, minHeight: 800, padding: 0 },
+            ]}
+          >
+            <ExcelEditor
+              ref={excelEditorRef}
+              style={{ flex: 1, minHeight: 800 }}
+              editorContent={{
+                content: excelDataBase64 || "",
+                mime_type:
+                  editorData?.file?.type ||
+                  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+              }}
+              onChange={() => setHasChanges(true)}
+            />
+          </View>
+
+          {/* Status Message (web-friendly) */}
+          {saveStatusMessage && (
+            <View
+              style={[
+                styles.statusMessageContainer,
+                saveStatusMessage.type === "error" && {
+                  borderLeftColor: theme.colors.error,
+                },
+                saveStatusMessage.type === "success" && {
+                  borderLeftColor: theme.colors.success,
+                },
+                saveStatusMessage.type === "info" && {
+                  borderLeftColor: theme.colors.info,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.statusMessageText,
+                  saveStatusMessage.type === "error" && {
+                    color: theme.colors.error,
+                  },
+                  saveStatusMessage.type === "success" && {
+                    color: theme.colors.success,
+                  },
+                  saveStatusMessage.type === "info" && {
+                    color: theme.colors.textSecondary,
+                  },
+                ]}
+                numberOfLines={3}
+              >
+                {saveStatusMessage.text}
+              </Text>
+            </View>
+          )}
+        </View>
+      ) : (
       <ScrollView
         style={styles.scrollContainer}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          // Para Excel, aseguremos que el contenido ocupe al menos el alto de la pantalla
+          null,
+        ]}
         keyboardShouldPersistTaps="always"
         keyboardDismissMode="none"
         showsVerticalScrollIndicator={false}
@@ -1253,28 +1502,14 @@ const FileEditScreen: React.FC = () => {
         </View>
 
         {/* File Info */}
-        <View style={styles.fileInfo}>
+        {/* <View style={styles.fileInfo}>
           <Text style={styles.fileInfoText}>Tipo: {editorData.file.type}</Text>
           <Text style={styles.fileInfoText}>
             Tamaño: {(editorData.file.size / 1024).toFixed(1)} KB
           </Text>
-        </View>
+        </View> */}
 
-        {/* Editor (HTML o Excel) */}
-        {isExcelView ? (
-          <View style={styles.excelContainer}>
-            <ExcelEditor
-              ref={excelEditorRef}
-              editorContent={{
-                content: excelDataBase64 || '',
-                mime_type:
-                  editorData?.file?.type ||
-                  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-              }}
-              onChange={() => setHasChanges(true)}
-            />
-          </View>
-        ) : (
+        {/* Editor HTML */}
           <TouchableOpacity
             style={styles.webViewContainer}
             activeOpacity={1}
@@ -1282,7 +1517,7 @@ const FileEditScreen: React.FC = () => {
           >
             <WebView
               ref={webViewRef}
-              key={'stable-editor-webview'}
+              key={"stable-editor-webview"}
               source={{ html: editableHtml }}
               style={styles.webView}
               onMessage={onWebViewMessage}
@@ -1296,30 +1531,45 @@ const FileEditScreen: React.FC = () => {
               nestedScrollEnabled={true}
               renderLoading={() => (
                 <View style={styles.webViewLoading}>
-                  <ActivityIndicator size="large" color={theme.colors.primary} />
+                  <ActivityIndicator
+                    size="large"
+                    color={theme.colors.primary}
+                  />
                   <Text style={styles.loadingText}>Cargando editor...</Text>
                 </View>
               )}
             />
           </TouchableOpacity>
-        )}
+        
 
         {/* Status Message (web-friendly) */}
         {saveStatusMessage && (
           <View
             style={[
               styles.statusMessageContainer,
-              saveStatusMessage.type === 'error' && { borderLeftColor: theme.colors.error },
-              saveStatusMessage.type === 'success' && { borderLeftColor: theme.colors.success },
-              saveStatusMessage.type === 'info' && { borderLeftColor: theme.colors.info },
+              saveStatusMessage.type === "error" && {
+                borderLeftColor: theme.colors.error,
+              },
+              saveStatusMessage.type === "success" && {
+                borderLeftColor: theme.colors.success,
+              },
+              saveStatusMessage.type === "info" && {
+                borderLeftColor: theme.colors.info,
+              },
             ]}
           >
             <Text
               style={[
                 styles.statusMessageText,
-                saveStatusMessage.type === 'error' && { color: theme.colors.error },
-                saveStatusMessage.type === 'success' && { color: theme.colors.success },
-                saveStatusMessage.type === 'info' && { color: theme.colors.textSecondary },
+                saveStatusMessage.type === "error" && {
+                  color: theme.colors.error,
+                },
+                saveStatusMessage.type === "success" && {
+                  color: theme.colors.success,
+                },
+                saveStatusMessage.type === "info" && {
+                  color: theme.colors.textSecondary,
+                },
               ]}
               numberOfLines={3}
             >
@@ -1328,38 +1578,47 @@ const FileEditScreen: React.FC = () => {
           </View>
         )}
 
-        {/* Action Buttons */}
-        <View style={styles.actionButtons}>
-          <TouchableOpacity
-            style={styles.discardButton}
-            onPress={handleDiscard}
-          >
-            <Text style={styles.discardButtonText}>Descartar</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.saveButton,
-              (!hasChanges || saving) && styles.saveButtonDisabled,
-            ]}
-            onPress={isExcelView ? async () => {
-              const jsonData = excelEditorRef.current?.getWorkbookDataJson();
-              if (!jsonData) {
-                setSaveStatusMessage({ type: 'error', text: 'No fue posible generar el contenido para guardar' });
-                return;
-              }
-              await handleExcelSaveData(jsonData.data, 'Edición desde móvil');
-            } : handleSave}
-            disabled={!hasChanges || saving}
-          >
-            {saving ? (
-              <ActivityIndicator size="small" color={theme.colors.background} />
-            ) : (
-              <Text style={styles.saveButtonText}>Guardar</Text>
-            )}
-          </TouchableOpacity>
-        </View>
       </ScrollView>
+      )}
+      {/* Action Buttons */}
+      <View style={styles.actionButtons}>
+        <TouchableOpacity style={styles.discardButton} onPress={handleDiscard}>
+          <Text style={styles.discardButtonText}>Descartar</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.saveButton,
+            (!hasChanges || saving) && styles.saveButtonDisabled,
+          ]}
+          onPress={
+            isExcelView
+              ? async () => {
+                  const jsonData =
+                    excelEditorRef.current?.getWorkbookDataJson();
+                  if (!jsonData) {
+                    setSaveStatusMessage({
+                      type: "error",
+                      text: "No fue posible generar el contenido para guardar",
+                    });
+                    return;
+                  }
+                  await handleExcelSaveData(
+                    jsonData.data,
+                    "Edición desde móvil"
+                  );
+                }
+              : handleSave
+          }
+          disabled={!hasChanges || saving}
+        >
+          {saving ? (
+            <ActivityIndicator size="small" color={theme.colors.background} />
+          ) : (
+            <Text style={styles.saveButtonText}>Guardar</Text>
+          )}
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 };
@@ -1387,6 +1646,9 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
+  },
+  flexBody: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,
@@ -1505,12 +1767,22 @@ const styles = StyleSheet.create({
   },
   excelContainer: {
     flex: 1,
+    flexGrow: 1,
     margin: theme.spacing.md,
     borderRadius: 8,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.background,
+  },
+  // Variante para ocupar toda el área disponible (sin márgenes) en modo Excel
+  excelContainerFull: {
+    marginTop: 0,
+    marginBottom: 0,
+    marginLeft: 0,
+    marginRight: 0,
+    borderRadius: 0,
+    borderWidth: 0,
   },
   actionButtons: {
     flexDirection: "row",

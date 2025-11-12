@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -7,18 +7,22 @@ import {
   StyleSheet,
   Alert,
   Share,
-} from 'react-native';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { AppStackParamList, File } from '../../interfaces';
-import { filesService } from '../../services/files';
-import { theme } from '../../theme';
-import LoadingScreen from '../../components/common/LoadingScreen';
-import { useDateFormatter } from '../../hooks/useDateFormatter';
-import { useFileFormatter } from '../../hooks/useFileFormatter';
+} from "react-native";
+import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import { StackNavigationProp } from "@react-navigation/stack";
+import { AppStackParamList, File } from "../../interfaces";
+import { filesService } from "../../services/files";
+import { theme } from "../../theme";
+import LoadingScreen from "../../components/common/LoadingScreen";
+import { useDateFormatter } from "../../hooks/useDateFormatter";
+import { useFileFormatter } from "../../hooks/useFileFormatter";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
-type FileDetailNavigationProp = StackNavigationProp<AppStackParamList, 'FileDetail'>;
-type FileDetailRouteProp = RouteProp<AppStackParamList, 'FileDetail'>;
+type FileDetailNavigationProp = StackNavigationProp<
+  AppStackParamList,
+  "FileDetail"
+>;
+type FileDetailRouteProp = RouteProp<AppStackParamList, "FileDetail">;
 
 const FileDetailScreen: React.FC = () => {
   const navigation = useNavigation<FileDetailNavigationProp>();
@@ -26,11 +30,11 @@ const FileDetailScreen: React.FC = () => {
   const { fileId } = route.params;
   const { smartFormatDate } = useDateFormatter();
   const { formatFileSize } = useFileFormatter();
-  
+
   const [loading, setLoading] = useState(true);
   const [file, setFile] = useState<File | null>(null);
-  const [fileContent, setFileContent] = useState<string>('');
-  const [currentContent, setCurrentContent] = useState<string>('');
+  const [fileContent, setFileContent] = useState<string>("");
+  const [currentContent, setCurrentContent] = useState<string>("");
 
   useEffect(() => {
     loadFileDetail();
@@ -40,55 +44,64 @@ const FileDetailScreen: React.FC = () => {
     try {
       const fileData = await filesService.getFileById(fileId);
       setFile(fileData);
-      
+
       // Si es un archivo de texto, cargar el contenido actual
-      if (fileData.mimeType.includes('text') || fileData.mimeType.includes('json')) {
+      if (
+        fileData.mimeType.includes("text") ||
+        fileData.mimeType.includes("json")
+      ) {
         try {
           // Usar la misma lógica que FileHistoryScreen para obtener la versión actual
           const fileHistory = await filesService.getFileHistory(fileId);
-          
-          let content = '';
+
+          let content = "";
           if (fileHistory && fileHistory.length > 0) {
             // Mapear y ordenar igual que en FileHistoryScreen
             const mappedHistory = fileHistory.map((item, index) => ({
               id: item.id.toString(),
               version: item.version,
-              isCurrentVersion: index === 0 // La primera versión es la más reciente
+              isCurrentVersion: index === 0, // La primera versión es la más reciente
             }));
-            
+
             // Ordenar por versión descendente (más reciente primero)
-            const sortedHistory = mappedHistory.sort((a, b) => b.version - a.version);
-            
+            const sortedHistory = mappedHistory.sort(
+              (a, b) => b.version - a.version
+            );
+
             // Encontrar la versión actual (la primera después del ordenamiento)
             const currentVersion = sortedHistory[0];
-            
+
             // Usar la misma lógica que FileContentViewer para obtener el contenido
             if (currentVersion.version === 1) {
               // Si es la versión 1, usar fileId para obtener el contenido del archivo original
               const contentData = await filesService.getFileContent(fileId);
-              content = contentData.content || '';
+              content = contentData.content || "";
             } else {
               // Si es otra versión, usar changeId para obtener el contenido del cambio
-              const contentData = await filesService.getFileChangeContent(currentVersion.id);
-              content = contentData.content || '';
+              const contentData = await filesService.getFileChangeContent(
+                currentVersion.id
+              );
+              content = contentData.content || "";
             }
           } else {
             // Si no hay historial, usar getFileContent como fallback
             const contentData = await filesService.getFileContent(fileId);
-            content = contentData.content || '';
+            content = contentData.content || "";
           }
-          
+
           setCurrentContent(content);
-          setFileContent(content.substring(0, 500) + (content.length > 500 ? '...' : ''));
+          setFileContent(
+            content.substring(0, 500) + (content.length > 500 ? "..." : "")
+          );
         } catch (contentError) {
-          console.error('Error loading file content:', contentError);
-          setFileContent('No se pudo cargar el contenido del archivo');
-          setCurrentContent('');
+          console.error("Error loading file content:", contentError);
+          setFileContent("No se pudo cargar el contenido del archivo");
+          setCurrentContent("");
         }
       }
     } catch (error) {
-      console.error('Error loading file detail:', error);
-      Alert.alert('Error', 'No se pudo cargar el archivo');
+      console.error("Error loading file detail:", error);
+      Alert.alert("Error", "No se pudo cargar el archivo");
       navigation.goBack();
     } finally {
       setLoading(false);
@@ -98,16 +111,16 @@ const FileDetailScreen: React.FC = () => {
   const handleEdit = () => {
     if (file) {
       // Pasar tanto el fileId como el contenido actual al editor
-      navigation.navigate('FileEdit', { 
+      navigation.navigate("FileEdit", {
         fileId: file.id,
-        initialContent: currentContent // Contenido de la versión más reciente
+        initialContent: currentContent, // Contenido de la versión más reciente
       });
     }
   };
 
   const handleViewHistory = () => {
     if (file) {
-      navigation.navigate('FileHistory', { fileId: file.id });
+      navigation.navigate("FileHistory", { fileId: file.id });
     }
   };
 
@@ -115,34 +128,36 @@ const FileDetailScreen: React.FC = () => {
     if (file) {
       try {
         await Share.share({
-          message: `Compartiendo archivo: ${file.name}\n\nDescripción: ${file.description || 'Sin descripción'}`,
+          message: `Compartiendo archivo: ${file.name}\n\nDescripción: ${
+            file.description || "Sin descripción"
+          }`,
           title: file.name,
         });
       } catch (error) {
-        console.error('Error sharing file:', error);
+        console.error("Error sharing file:", error);
       }
     }
   };
 
   const handleDelete = () => {
     if (!file) return;
-    
+
     Alert.alert(
-      'Eliminar Archivo',
+      "Eliminar Archivo",
       `¿Estás seguro que deseas eliminar "${file.name}"?`,
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: "Cancelar", style: "cancel" },
         {
-          text: 'Eliminar',
-          style: 'destructive',
+          text: "Eliminar",
+          style: "destructive",
           onPress: async () => {
             try {
               await filesService.deleteFile(file.id);
-              Alert.alert('Éxito', 'Archivo eliminado correctamente');
+              Alert.alert("Éxito", "Archivo eliminado correctamente");
               navigation.goBack();
             } catch (error) {
-              console.error('Error deleting file:', error);
-              Alert.alert('Error', 'No se pudo eliminar el archivo');
+              console.error("Error deleting file:", error);
+              Alert.alert("Error", "No se pudo eliminar el archivo");
             }
           },
         },
@@ -150,20 +165,45 @@ const FileDetailScreen: React.FC = () => {
     );
   };
 
-  const getFileIcon = (mimeType: string) => {
-    if (mimeType.includes('pdf')) return '📄';
-    if (mimeType.includes('image')) return '🖼️';
-    if (mimeType.includes('video')) return '🎥';
-    if (mimeType.includes('audio')) return '🎵';
-    if (mimeType.includes('text')) return '📝';
-    return '📁';
+  const getFileIconInfo = (file: File) => {
+    const name = (file.name || "").toLowerCase();
+    const mime = (file.mimeType || "").toLowerCase();
+
+    if (
+      name.endsWith('.doc') ||
+      name.endsWith('.docx') ||
+      mime.includes('msword') ||
+      mime.includes('wordprocessingml')
+    ) {
+      return { name: 'file-word-outline', color: '#2B579A' };
+    }
+
+    if (
+      name.endsWith('.xls') ||
+      name.endsWith('.xlsx') ||
+      mime.includes('excel') ||
+      mime.includes('spreadsheetml')
+    ) {
+      return { name: 'file-excel-outline', color: '#217346' };
+    }
+
+    if (name.endsWith('.html') || name.endsWith('.htm') || mime.includes('html')) {
+      return { name: 'language-html5', color: '#E34F26' };
+    }
+
+    if (mime.includes('pdf')) return { name: 'file-pdf-box', color: '#D32F2F' };
+    if (mime.includes('image')) return { name: 'file-image-outline', color: theme.colors.textSecondary };
+    if (mime.includes('video')) return { name: 'file-video-outline', color: theme.colors.textSecondary };
+    if (mime.includes('audio')) return { name: 'file-music-outline', color: theme.colors.textSecondary };
+    if (mime.includes('text')) return { name: 'file-document-outline', color: theme.colors.textSecondary };
+    return { name: 'file-outline', color: theme.colors.textSecondary };
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active':
+      case "active":
         return theme.colors.success;
-      case 'inactive':
+      case "inactive":
         return theme.colors.textTertiary;
       default:
         return theme.colors.success;
@@ -172,12 +212,12 @@ const FileDetailScreen: React.FC = () => {
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'active':
-        return 'Activo';
-      case 'inactive':
-        return 'Inactivo';
+      case "active":
+        return "Activo";
+      case "inactive":
+        return "Inactivo";
       default:
-        return 'Activo';
+        return "Activo";
     }
   };
 
@@ -198,7 +238,12 @@ const FileDetailScreen: React.FC = () => {
       {/* File Header */}
       <View style={styles.header}>
         <View style={styles.fileIconContainer}>
-          <Text style={styles.fileIconLarge}>{getFileIcon(file.mimeType)}</Text>
+          {(() => {
+            const icon = getFileIconInfo(file);
+            return (
+              <MaterialCommunityIcons name={icon.name} size={40} color={icon.color} />
+            );
+          })()}
         </View>
         <Text style={styles.fileName}>{file.name}</Text>
         {file.description && (
@@ -209,37 +254,43 @@ const FileDetailScreen: React.FC = () => {
       {/* File Info */}
       <View style={styles.infoSection}>
         <Text style={styles.sectionTitle}>Información del Archivo</Text>
-        
+
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Estado:</Text>
           <View style={styles.statusContainer}>
-            <View style={[
-              styles.statusDot,
-              { backgroundColor: getStatusColor(file.status) }
-            ]} />
-            <Text style={[styles.infoValue, { color: getStatusColor(file.status) }]}>{getStatusText(file.status)}</Text>
+            <View
+              style={[
+                styles.statusDot,
+                { backgroundColor: getStatusColor(file.status) },
+              ]}
+            />
+            <Text
+              style={[styles.infoValue, { color: getStatusColor(file.status) }]}
+            >
+              {getStatusText(file.status)}
+            </Text>
           </View>
         </View>
-        
+
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Tamaño:</Text>
           <Text style={styles.infoValue}>{formatFileSize(file.size)}</Text>
         </View>
-        
+
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Creado:</Text>
           <Text style={styles.infoValue}>
             {smartFormatDate(file.createdAt)}
           </Text>
         </View>
-        
+
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Modificado:</Text>
           <Text style={styles.infoValue}>
             {smartFormatDate(file.updatedAt)}
           </Text>
         </View>
-        
+
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Versión:</Text>
           <Text style={styles.infoValue}>{file.version}</Text>
@@ -259,14 +310,17 @@ const FileDetailScreen: React.FC = () => {
       {/* Actions */}
       <View style={styles.actionsSection}>
         <Text style={styles.sectionTitle}>Acciones</Text>
-        
+
         <TouchableOpacity style={styles.actionButton} onPress={handleEdit}>
           <Text style={styles.actionIcon}>✏️</Text>
           <Text style={styles.actionText}>Editar Archivo</Text>
           <Text style={styles.actionChevron}>›</Text>
         </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.actionButton} onPress={handleViewHistory}>
+
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={handleViewHistory}
+        >
           <Text style={styles.actionIcon}>📋</Text>
           <Text style={styles.actionText}>Ver Historial</Text>
           <Text style={styles.actionChevron}>›</Text>
@@ -282,7 +336,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.backgroundSecondary,
   },
   header: {
-    alignItems: 'center',
+    alignItems: "center",
     padding: theme.spacing.lg,
     backgroundColor: theme.colors.background,
   },
@@ -291,8 +345,8 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: theme.dimensions.borderRadius.xl,
     backgroundColor: theme.colors.backgroundTertiary,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: theme.spacing.md,
   },
   fileIconLarge: {
@@ -300,13 +354,13 @@ const styles = StyleSheet.create({
   },
   fileName: {
     ...theme.typography.styles.h2,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: theme.spacing.sm,
   },
   fileDescription: {
     ...theme.typography.styles.body,
     color: theme.colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
   },
   infoSection: {
     margin: theme.spacing.screenPadding,
@@ -328,29 +382,29 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
   },
   infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: theme.spacing.sm,
     borderBottomWidth: theme.dimensions.borderWidth.thin,
     borderBottomColor: theme.colors.border,
   },
   infoLabel: {
     ...theme.typography.styles.body,
-    fontWeight: '500',
+    fontWeight: "500",
     flex: 1,
   },
   infoValue: {
     ...theme.typography.styles.body,
     color: theme.colors.textSecondary,
     flex: 2,
-    textAlign: 'right',
+    textAlign: "right",
   },
   statusContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flex: 2,
-    justifyContent: 'flex-end',
+    justifyContent: "flex-end",
   },
   statusDot: {
     width: 8,
@@ -366,11 +420,11 @@ const styles = StyleSheet.create({
   },
   contentText: {
     ...theme.typography.styles.bodySmall,
-    fontFamily: 'monospace',
+    fontFamily: "monospace",
   },
   actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: theme.spacing.md,
     borderBottomWidth: theme.dimensions.borderWidth.thin,
     borderBottomColor: theme.colors.border,
@@ -396,8 +450,8 @@ const styles = StyleSheet.create({
   },
   errorContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     backgroundColor: theme.colors.background,
   },
   errorText: {
