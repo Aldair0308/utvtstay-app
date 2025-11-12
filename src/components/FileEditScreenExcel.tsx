@@ -14,6 +14,8 @@ if (typeof XLSX.set_cptable === "function") {
   XLSX.set_cptable(cpexcel);
 }
 
+const DEFAULT_COL_WIDTH = 120;
+
 type EditorContentPayload = {
   content: string; // base64 del XLSX
   mime_type: string;
@@ -266,8 +268,44 @@ const ExcelEditor = forwardRef<ExcelEditorHandle, Props>(function ExcelEditor(
           grid.push(rowArr);
         }
 
+        // Intentar extraer anchos de columna del JSON si existen
+        let colWidths: number[] = [];
+        const colsDef = sheet?.cols || {};
+        const widthsArr = Array.isArray(colsDef?.widths)
+          ? colsDef.widths
+          : Array.isArray(colsDef?.items)
+          ? colsDef.items.map((it: any) => Number(it?.width) || DEFAULT_COL_WIDTH)
+          : null;
+
+        if (widthsArr && widthsArr.length) {
+          colWidths = widthsArr.map((w: any) => Number(w) || DEFAULT_COL_WIDTH);
+        } else if (colsDef && typeof colsDef === "object") {
+          const numericKeys = Object.keys(colsDef)
+            .map((k) => Number(k))
+            .filter((n) => !isNaN(n));
+          if (numericKeys.length) {
+            const maxKey = numericKeys.reduce((m, n) => Math.max(m, n), -1);
+            colWidths = new Array(Math.max(maxKey + 1, maxCols || 1)).fill(
+              DEFAULT_COL_WIDTH
+            );
+            for (const k of Object.keys(colsDef)) {
+              const idx = Number(k);
+              const widthVal = Number((colsDef as any)[k]?.width);
+              if (!isNaN(idx) && !isNaN(widthVal) && widthVal > 0) {
+                colWidths[idx] = widthVal;
+              }
+            }
+          }
+        }
+
         const cols = maxCols;
-        return { rows: grid, cols, sheetName };
+        if (!colWidths || !colWidths.length) {
+          colWidths = new Array(Math.max(cols, declaredColsLen || 1)).fill(
+            DEFAULT_COL_WIDTH
+          );
+        }
+
+        return { rows: grid, cols, sheetName, colWidths };
       } catch (e) {
         console.warn("[FileEditScreenExcel] Error parseando JSON de Excel:", e);
         return null;
@@ -349,7 +387,8 @@ const ExcelEditor = forwardRef<ExcelEditorHandle, Props>(function ExcelEditor(
       );
 
       const cols = rows.reduce((m, r) => Math.max(m, r.length), 0);
-      return { rows, cols, sheetName };
+      const colWidths = new Array(Math.max(cols, 1)).fill(DEFAULT_COL_WIDTH);
+      return { rows, cols, sheetName, colWidths };
     } catch (e) {
       console.warn("[FileEditScreenExcel] Error parseando XLSX:", e);
       return null;
@@ -358,6 +397,7 @@ const ExcelEditor = forwardRef<ExcelEditorHandle, Props>(function ExcelEditor(
 
   const [grid, setGrid] = useState<string[][]>(tableData?.rows || []);
   const [cols, setCols] = useState<number>(tableData?.cols || 0);
+  const [colWidths, setColWidths] = useState<number[]>(tableData?.colWidths || []);
   const [sheetName, setSheetName] = useState<string>(
     tableData?.sheetName || "Sheet1"
   );
@@ -367,6 +407,7 @@ const ExcelEditor = forwardRef<ExcelEditorHandle, Props>(function ExcelEditor(
     if (tableData) {
       setGrid(tableData.rows);
       setCols(tableData.cols);
+      setColWidths(tableData.colWidths || []);
       setSheetName(tableData.sheetName);
     }
   }, [tableData?.rows, tableData?.cols, tableData?.sheetName]);
@@ -472,7 +513,14 @@ const ExcelEditor = forwardRef<ExcelEditorHandle, Props>(function ExcelEditor(
             {/* Encabezados A, B, C... */}
             <View style={[styles.row, styles.headerRow]}>
               {Array.from({ length: cols }).map((_, c) => (
-                <View key={"h-" + c} style={[styles.cell, styles.headerCell]}>
+                <View
+                  key={"h-" + c}
+                  style={[
+                    styles.cell,
+                    styles.headerCell,
+                    { width: (colWidths && colWidths[c]) || DEFAULT_COL_WIDTH },
+                  ]}
+                >
                   <Text style={styles.cellText}>
                     {String.fromCharCode(65 + (c % 26))}
                   </Text>
@@ -483,9 +531,13 @@ const ExcelEditor = forwardRef<ExcelEditorHandle, Props>(function ExcelEditor(
             {rows.map((r, ri) => (
               <View key={"r-" + ri} style={styles.row}>
                 {Array.from({ length: cols }).map((_, ci) => (
-                  <View key={"c-" + ri + "-" + ci} style={styles.cell}>
+                  <View
+                    key={"c-" + ri + "-" + ci}
+                    style={[styles.cell, { width: (colWidths && colWidths[ci]) || DEFAULT_COL_WIDTH }]}
+                  >
                     <TextInput
                       style={styles.cellInput}
+                      multiline={false}
                       value={r[ci] ?? ""}
                       onChangeText={(text) => {
                         setGrid((prev) => {
@@ -525,7 +577,8 @@ const styles = StyleSheet.create({
     borderColor: "#ddd",
     paddingHorizontal: 8,
     paddingVertical: 6,
-    minWidth: 100,
+    overflow: "hidden",
+    flexShrink: 0,
   },
   headerCell: { backgroundColor: "#f0f0f0" },
   cellText: { fontSize: 12, color: "#222", fontFamily: "sans-serif" },
@@ -534,6 +587,9 @@ const styles = StyleSheet.create({
     color: "#222",
     padding: 0,
     fontFamily: "sans-serif",
+    width: "100%",
+    includeFontPadding: false,
+    textAlignVertical: "center",
   },
   containerMsg: {
     flex: 1,
