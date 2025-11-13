@@ -684,11 +684,24 @@ const FileEditScreen: React.FC = () => {
           setHasChanges(false);
           return; // ya cargamos contenido editable en WebView
         }
-        // Excel JSON estructurado
-        const excelJsonSheets = Array.isArray(editorResponse?.content)
-          ? { content: editorResponse.content }
-          : Array.isArray((editorResponse as any)?.data?.content)
-          ? { content: (editorResponse as any).data.content }
+        const contentObj = (editorResponse as any)?.content;
+        const dataContentObj = (editorResponse as any)?.data?.content;
+        const excelJsonSheets = Array.isArray(contentObj)
+          ? { content: contentObj }
+          : contentObj && typeof contentObj === "object"
+          ? {
+              content: Array.isArray((contentObj as any)?.sheets)
+                ? (contentObj as any).sheets
+                : [contentObj],
+            }
+          : Array.isArray(dataContentObj)
+          ? { content: dataContentObj }
+          : dataContentObj && typeof dataContentObj === "object"
+          ? {
+              content: Array.isArray((dataContentObj as any)?.sheets)
+                ? (dataContentObj as any).sheets
+                : [dataContentObj],
+            }
           : null;
 
         if (excelJsonSheets) {
@@ -1014,7 +1027,8 @@ const FileEditScreen: React.FC = () => {
       await filesService.updateContentMobile(
         fileId.toString(),
         htmlContent,
-        "Actualización desde móvil"
+        "Actualización desde móvil",
+        undefined // baseChangeId - se puede mejorar en el futuro para obtener el change ID actual
       );
 
       console.log("[FileEditScreen] Archivo guardado exitosamente");
@@ -1335,12 +1349,7 @@ const FileEditScreen: React.FC = () => {
     }, 1000);
   };
 
-  const navigateToHistory = () => {
-    navigation.navigate("FileHistory", {
-      fileId,
-      fileName: editorData?.file.name || "Archivo",
-    });
-  };
+  
 
   if (loading) {
     return (
@@ -1385,22 +1394,6 @@ const FileEditScreen: React.FC = () => {
   if (!editorData.content.editable && !isExcelView) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
-          </TouchableOpacity>
-          <View style={styles.headerContent}>
-            <Text style={styles.headerTitle} numberOfLines={1}>
-              {editorData.file.name}
-            </Text>
-            <Text style={styles.versionBadge}>
-              Versión {editorData.version}
-            </Text>
-          </View>
-        </View>
         <View style={styles.nonEditableContainer}>
           <Ionicons
             name="lock-closed-outline"
@@ -1431,26 +1424,6 @@ const FileEditScreen: React.FC = () => {
       ) : null}
       {isExcelView ? (
         <View style={styles.flexBody}>
-          {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity style={styles.backButton} onPress={handleDiscard}>
-              <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
-            </TouchableOpacity>
-
-            <View style={styles.headerContent}>
-              <Text style={styles.headerTitle} numberOfLines={1}>
-                {editorData.file.name}
-              </Text>
-              <Text style={styles.versionBadge}>
-                Versión {editorData.version} de {editorData.total_versions}
-              </Text>
-            </View>
-
-            <TouchableOpacity style={styles.historyButton} onPress={navigateToHistory}>
-              <Ionicons name="time-outline" size={24} color={theme.colors.text} />
-            </TouchableOpacity>
-          </View>
-
           {/* Editor Excel a pantalla completa */}
           <View
             style={[
@@ -1521,28 +1494,7 @@ const FileEditScreen: React.FC = () => {
         keyboardDismissMode="none"
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={handleDiscard}>
-            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
-          </TouchableOpacity>
-
-          <View style={styles.headerContent}>
-            <Text style={styles.headerTitle} numberOfLines={1}>
-              {editorData.file.name}
-            </Text>
-            <Text style={styles.versionBadge}>
-              Versión {editorData.version} de {editorData.total_versions}
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            style={styles.historyButton}
-            onPress={navigateToHistory}
-          >
-            <Ionicons name="time-outline" size={24} color={theme.colors.text} />
-          </TouchableOpacity>
-        </View>
+        
 
         {/* File Info */}
         {/* <View style={styles.fileInfo}>

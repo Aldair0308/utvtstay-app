@@ -446,12 +446,17 @@ const ExcelEditor = forwardRef<ExcelEditorHandle, Props>(function ExcelEditor(
             rowsObj[String(ri)] = { cells };
           });
 
+          const widths = colWidths && colWidths.length
+            ? colWidths
+            : new Array(Math.max(maxCols, 1)).fill(DEFAULT_COL_WIDTH);
+
           const data = {
             name: sheetName || "Sheet1",
             freeze: "A1",
             styles: [],
             merges: [],
             rows: rowsObj,
+            cols: { len: maxCols, widths },
           };
 
           return { data, sheetName: sheetName || "Sheet1" };

@@ -441,17 +441,23 @@ export const filesService = {
   updateContentMobile: async (
     fileId: string,
     content: string,
-    versionMessage?: string
+    versionMessage?: string,
+    baseChangeId?: string | number
   ): Promise<any> => {
     try {
-      const payload = {
+      const payload: any = {
         content,
-        version_message: versionMessage || "Actualización desde móvil",
       };
+
+      // Solo agregar base_change_id si está presente
+      if (baseChangeId !== undefined && baseChangeId !== null) {
+        payload.base_change_id = baseChangeId;
+      }
 
       console.log(`[FilesService] Updating content for file ${fileId}:`, {
         contentLength: content.length,
-        versionMessage: payload.version_message,
+        hasBaseChangeId: !!baseChangeId,
+        baseChangeId: baseChangeId,
       });
 
       const response = await apiClient.post<ApiResponse<any>>(
