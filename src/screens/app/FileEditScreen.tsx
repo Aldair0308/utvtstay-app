@@ -97,6 +97,16 @@ const FileEditScreen: React.FC = () => {
     loadFileForEdit();
   }, [fileId]);
 
+  useFocusEffect(
+    React.useCallback(() => {
+      const subscription = BackHandler.addEventListener(
+        "hardwareBackPress",
+        () => true
+      );
+      return () => subscription.remove();
+    }, [])
+  );
+
   // Gestión del teclado
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(

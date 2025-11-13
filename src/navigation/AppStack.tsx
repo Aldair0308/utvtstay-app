@@ -75,6 +75,7 @@ const AppStack: React.FC = () => {
         component={FileEditScreen}
         options={{
           title: 'Editar Archivo',
+          gestureEnabled: false,
         }}
       />
       
