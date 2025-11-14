@@ -1,9 +1,5 @@
 // User interfaces
-export type {
-  User,
-  AuthContextType,
-  LoginResponse,
-} from './User';
+export type { User, AuthContextType, LoginResponse } from "./User";
 
 // File interfaces
 export type {
@@ -12,14 +8,14 @@ export type {
   FileVersion,
   FileListResponse,
   FileDetailResponse,
-} from './File';
+} from "./File";
 
 // Calendar interfaces
 export type {
   CalendarEvent,
   CalendarEventsResponse,
   CreateEventRequest,
-} from './CalendarEvent';
+} from "./CalendarEvent";
 
 // Navigation types
 export type AuthStackParamList = {

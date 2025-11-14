@@ -170,33 +170,44 @@ const FileDetailScreen: React.FC = () => {
     const mime = (file.mimeType || "").toLowerCase();
 
     if (
-      name.endsWith('.doc') ||
-      name.endsWith('.docx') ||
-      mime.includes('msword') ||
-      mime.includes('wordprocessingml')
+      name.endsWith(".doc") ||
+      name.endsWith(".docx") ||
+      mime.includes("msword") ||
+      mime.includes("wordprocessingml")
     ) {
-      return { name: 'file-word-outline', color: '#2B579A' };
+      return { name: "file-word-outline", color: "#2B579A" };
     }
 
     if (
-      name.endsWith('.xls') ||
-      name.endsWith('.xlsx') ||
-      mime.includes('excel') ||
-      mime.includes('spreadsheetml')
+      name.endsWith(".xls") ||
+      name.endsWith(".xlsx") ||
+      mime.includes("excel") ||
+      mime.includes("spreadsheetml")
     ) {
-      return { name: 'file-excel-outline', color: '#217346' };
+      return { name: "file-excel-outline", color: "#217346" };
     }
 
-    if (name.endsWith('.html') || name.endsWith('.htm') || mime.includes('html')) {
-      return { name: 'language-html5', color: '#E34F26' };
+    if (
+      name.endsWith(".html") ||
+      name.endsWith(".htm") ||
+      mime.includes("html")
+    ) {
+      return { name: "language-html5", color: "#E34F26" };
     }
 
-    if (mime.includes('pdf')) return { name: 'file-pdf-box', color: '#D32F2F' };
-    if (mime.includes('image')) return { name: 'file-image-outline', color: theme.colors.textSecondary };
-    if (mime.includes('video')) return { name: 'file-video-outline', color: theme.colors.textSecondary };
-    if (mime.includes('audio')) return { name: 'file-music-outline', color: theme.colors.textSecondary };
-    if (mime.includes('text')) return { name: 'file-document-outline', color: theme.colors.textSecondary };
-    return { name: 'file-outline', color: theme.colors.textSecondary };
+    if (mime.includes("pdf")) return { name: "file-pdf-box", color: "#D32F2F" };
+    if (mime.includes("image"))
+      return { name: "file-image-outline", color: theme.colors.textSecondary };
+    if (mime.includes("video"))
+      return { name: "file-video-outline", color: theme.colors.textSecondary };
+    if (mime.includes("audio"))
+      return { name: "file-music-outline", color: theme.colors.textSecondary };
+    if (mime.includes("text"))
+      return {
+        name: "file-document-outline",
+        color: theme.colors.textSecondary,
+      };
+    return { name: "file-outline", color: theme.colors.textSecondary };
   };
 
   const getStatusColor = (status: string) => {
@@ -241,7 +252,11 @@ const FileDetailScreen: React.FC = () => {
           {(() => {
             const icon = getFileIconInfo(file);
             return (
-              <MaterialCommunityIcons name={icon.name} size={40} color={icon.color} />
+              <MaterialCommunityIcons
+                name={icon.name}
+                size={40}
+                color={icon.color}
+              />
             );
           })()}
         </View>
