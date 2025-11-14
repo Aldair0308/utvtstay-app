@@ -17,6 +17,7 @@ import { WebView } from "react-native-webview";
 import { filesService } from "../../services/files";
 import { colors, spacing, typography } from "../../theme";
 import { AppStackParamList } from "../../interfaces";
+import ExcelEditor from "../../components/FileEditScreenExcel";
 
 type FileContentViewerRouteProp = RouteProp<
   AppStackParamList,
@@ -92,6 +93,121 @@ const FileContentViewer: React.FC = () => {
     if (!content) return null;
 
     const { content: fileContent, mimeType, html, content_type } = content;
+
+    // Primer intento: si parece JSON de hoja (contiene "rows"), renderizar como Excel
+    try {
+      const fcTrim = (fileContent || "").trim();
+      if (fcTrim.startsWith("{") && fcTrim.includes("\"rows\"")) {
+        const raw = JSON.parse(fcTrim);
+        const sheets = Array.isArray(raw?.content)
+          ? raw.content
+          : Array.isArray(raw?.sheets)
+          ? raw.sheets
+          : Array.isArray(raw)
+          ? raw
+          : [raw];
+        const normalized = { content: sheets };
+        return (
+          <View style={styles.editorCard}>
+            <ExcelEditor
+              editorContent={{
+                content: "",
+                mime_type:
+                  mimeType ||
+                  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+              }}
+              initialDataJson={normalized}
+              readOnly={true}
+              style={{ flex: 1, minHeight: 500 }}
+            />
+          </View>
+        );
+      }
+    } catch (e) {}
+
+    const isExcelMime =
+      !!mimeType &&
+      (mimeType.includes("spreadsheetml") ||
+        mimeType.includes("ms-excel") ||
+        mimeType ===
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
+    const changeType = content_type || content?.file_change?.change_type;
+    if (changeType === "json_data") {
+      try {
+        const raw = JSON.parse(fileContent || "{}");
+        const sheets = Array.isArray(raw?.content)
+          ? raw.content
+          : Array.isArray(raw?.sheets)
+          ? raw.sheets
+          : Array.isArray(raw)
+          ? raw
+          : [raw];
+        const normalized = { content: sheets };
+        return (
+          <View style={styles.editorCard}>
+            <ExcelEditor
+              editorContent={{
+                content: "",
+                mime_type:
+                  mimeType ||
+                  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+              }}
+              initialDataJson={normalized}
+              readOnly={true}
+              style={{ flex: 1, minHeight: 500 }}
+            />
+          </View>
+        );
+      } catch (e) {
+        // Si falla el parseo, continuar con las demás heurísticas
+      }
+    }
+
+    if (isExcelMime) {
+      const base64 = fileContent || "";
+      if (base64 && typeof base64 === "string") {
+        return (
+          <View style={styles.editorCard}>
+            <ExcelEditor
+              editorContent={{ content: base64, mime_type: mimeType }}
+              readOnly={true}
+              style={{ flex: 1, minHeight: 500 }}
+            />
+          </View>
+        );
+      }
+    }
+
+    try {
+      const rawObj = JSON.parse(fileContent || "");
+      const sheetsAuto = Array.isArray(rawObj?.content)
+        ? rawObj.content
+        : Array.isArray(rawObj?.sheets)
+        ? rawObj.sheets
+        : Array.isArray(rawObj)
+        ? rawObj
+        : [rawObj];
+      const first = sheetsAuto && sheetsAuto[0];
+      if (first && (first.rows || (typeof first === "object" && first))) {
+        const normalized = { content: sheetsAuto };
+        return (
+          <View style={styles.editorCard}>
+            <ExcelEditor
+              editorContent={{
+                content: "",
+                mime_type:
+                  mimeType ||
+                  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+              }}
+              initialDataJson={normalized}
+              readOnly={true}
+              style={{ flex: 1, minHeight: 500 }}
+            />
+          </View>
+        );
+      }
+    } catch (e) {}
 
     // Si hay HTML disponible o el contenido es HTML, usar WebView
     if (

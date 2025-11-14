@@ -15,6 +15,8 @@ if (typeof XLSX.set_cptable === "function") {
 }
 
 const DEFAULT_COL_WIDTH = 120;
+const MIN_COL_WIDTH = 60;
+const MAX_COL_WIDTH = 320;
 
 type EditorContentPayload = {
   content: string; // base64 del XLSX
@@ -31,6 +33,7 @@ type Props = {
   initialDataJson?: any;
   onChange?: () => void;
   style?: any;
+  readOnly?: boolean;
 };
 
 // Limpia y normaliza el base64 (quita prefijos data:, espacios, URL-safe y corrige padding)
@@ -92,7 +95,7 @@ function isProbablyBase64(raw: string): boolean {
 }
 
 const ExcelEditor = forwardRef<ExcelEditorHandle, Props>(function ExcelEditor(
-  { editorContent, initialDataJson, onChange, style },
+  { editorContent, initialDataJson, onChange, style, readOnly = false },
   ref
 ) {
   const isExcel =
@@ -216,8 +219,12 @@ const ExcelEditor = forwardRef<ExcelEditorHandle, Props>(function ExcelEditor(
 
         const sheet = sheets && sheets.length ? sheets[0] : payload;
         const sheetName: string = sheet?.name || "Sheet1";
-        const declaredColsLen: number =
+        const declaredRaw: number =
           Number(sheet?.cols?.len) || Number(sheet?.cols?.count) || 0;
+        const declaredColsLen: number = Math.max(
+          0,
+          Math.min(Number.isFinite(declaredRaw) ? declaredRaw : 0, 256)
+        );
 
         const rowsObj = sheet?.rows || {};
         const rowKeys = Object.keys(rowsObj);
@@ -244,16 +251,17 @@ const ExcelEditor = forwardRef<ExcelEditorHandle, Props>(function ExcelEditor(
             });
             maxCols = Math.max(maxCols, rowArr.length);
           } else if (cellsEntry && typeof cellsEntry === "object") {
-            const colKeys = Object.keys(cellsEntry);
-            const numericCols = colKeys
+            const numericCols = Object.keys(cellsEntry)
               .map((k) => Number(k))
-              .filter((n) => !isNaN(n));
-            const rowMaxCol = numericCols.reduce((m, n) => Math.max(m, n), -1);
-            const colsCount = Math.max(rowMaxCol + 1, declaredColsLen);
+              .filter((n) => !isNaN(n))
+              .sort((a, b) => a - b);
+            const rowMaxCol = numericCols.length
+              ? numericCols[numericCols.length - 1]
+              : -1;
+            const colsCount = Math.max(rowMaxCol + 1, declaredColsLen || 0);
             rowArr = new Array(colsCount).fill("");
-            for (const ck of colKeys) {
-              const ci = Number(ck);
-              const text = cellsEntry[ck]?.text ?? "";
+            for (const ci of numericCols) {
+              const text = (cellsEntry as any)[String(ci)]?.text ?? "";
               let t = String(text);
               t = fixMojibake(t);
               t = fixCellConcatenation(t);
@@ -268,7 +276,6 @@ const ExcelEditor = forwardRef<ExcelEditorHandle, Props>(function ExcelEditor(
           grid.push(rowArr);
         }
 
-        // Intentar extraer anchos de columna del JSON si existen
         let colWidths: number[] = [];
         const colsDef = sheet?.cols || {};
         const widthsArr = Array.isArray(colsDef?.widths)
@@ -300,9 +307,7 @@ const ExcelEditor = forwardRef<ExcelEditorHandle, Props>(function ExcelEditor(
 
         const cols = maxCols;
         if (!colWidths || !colWidths.length) {
-          colWidths = new Array(Math.max(cols, declaredColsLen || 1)).fill(
-            DEFAULT_COL_WIDTH
-          );
+          colWidths = autoWidths(grid, colWidths);
         }
 
         return { rows: grid, cols, sheetName, colWidths };
@@ -387,7 +392,7 @@ const ExcelEditor = forwardRef<ExcelEditorHandle, Props>(function ExcelEditor(
       );
 
       const cols = rows.reduce((m, r) => Math.max(m, r.length), 0);
-      const colWidths = new Array(Math.max(cols, 1)).fill(DEFAULT_COL_WIDTH);
+      const colWidths = autoWidths(rows, []);
       return { rows, cols, sheetName, colWidths };
     } catch (e) {
       console.warn("[FileEditScreenExcel] Error parseando XLSX:", e);
@@ -544,7 +549,9 @@ const ExcelEditor = forwardRef<ExcelEditorHandle, Props>(function ExcelEditor(
                       style={styles.cellInput}
                       multiline={false}
                       value={r[ci] ?? ""}
+                      editable={!readOnly}
                       onChangeText={(text) => {
+                        if (readOnly) return;
                         setGrid((prev) => {
                           const next = prev.map((row) => [...row]);
                           if (!next[ri]) next[ri] = [] as any;
@@ -617,3 +624,18 @@ import FileEditScreen from '../components/FileEditScreenExcel';
   }}
 />
 */
+  const autoWidths = (grid: string[][], fallback: number[]): number[] => {
+    const colsCount = grid.reduce((m, r) => Math.max(m, r.length), 0);
+    const widths = new Array(Math.max(colsCount, 1)).fill(DEFAULT_COL_WIDTH);
+    for (let ci = 0; ci < colsCount; ci++) {
+      let maxLen = 0;
+      for (let ri = 0; ri < grid.length; ri++) {
+        const v = grid?.[ri]?.[ci] ?? "";
+        const len = String(v).length;
+        if (len > maxLen) maxLen = len;
+      }
+      const w = Math.max(MIN_COL_WIDTH, Math.min(MAX_COL_WIDTH, 12 + maxLen * 8));
+      widths[ci] = w;
+    }
+    return fallback && fallback.length ? fallback : widths;
+  };

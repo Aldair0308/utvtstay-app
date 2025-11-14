@@ -1,19 +1,19 @@
-import React from 'react';
-import { createStackNavigator } from '@react-navigation/stack';
-import { AppStackParamList } from '../interfaces';
+import React from "react";
+import { createStackNavigator } from "@react-navigation/stack";
+import { AppStackParamList } from "../interfaces";
 
 // Importar pantallas (se crearán después)
-import DashboardScreen from '../screens/app/DashboardScreen';
-import FilesScreen from '../screens/app/FilesScreen';
-import FileDetailScreen from '../screens/app/FileDetailScreen';
-import FileHistoryScreen from '../screens/app/FileHistoryScreen';
-import FileEditScreen from '../screens/app/FileEditScreen';
-import FileContentViewer from '../screens/app/FileContentViewer';
-import CalendarScreen from '../screens/app/CalendarScreen';
-import ProfileScreen from '../screens/app/ProfileScreen';
-import AboutScreen from '../screens/app/AboutScreen';
-import TermsScreen from '../screens/app/TermsScreen';
-import PrivacyScreen from '../screens/app/PrivacyScreen';
+import DashboardScreen from "../screens/app/DashboardScreen";
+import FilesScreen from "../screens/app/FilesScreen";
+import FileDetailScreen from "../screens/app/FileDetailScreen";
+import FileHistoryScreen from "../screens/app/FileHistoryScreen";
+import FileEditScreen from "../screens/app/FileEditScreen";
+import FileContentViewer from "../screens/app/FileContentViewer";
+import CalendarScreen from "../screens/app/CalendarScreen";
+import ProfileScreen from "../screens/app/ProfileScreen";
+import AboutScreen from "../screens/app/AboutScreen";
+import TermsScreen from "../screens/app/TermsScreen";
+import PrivacyScreen from "../screens/app/PrivacyScreen";
 
 const Stack = createStackNavigator<AppStackParamList>();
 
@@ -23,107 +23,107 @@ const AppStack: React.FC = () => {
       initialRouteName="Dashboard"
       screenOptions={{
         headerStyle: {
-          backgroundColor: '#10B981',
+          backgroundColor: "#10B981",
           elevation: 0,
           shadowOpacity: 0,
         },
-        headerTintColor: '#FFFFFF',
+        headerTintColor: "#FFFFFF",
         headerTitleStyle: {
-          fontWeight: 'bold',
+          fontWeight: "bold",
           fontSize: 18,
         },
-        cardStyle: { backgroundColor: '#F9FAFB' },
+        cardStyle: { backgroundColor: "#F9FAFB" },
         animationEnabled: true,
         gestureEnabled: true,
       }}
     >
-      <Stack.Screen 
-        name="Dashboard" 
+      <Stack.Screen
+        name="Dashboard"
         component={DashboardScreen}
         options={{
-          title: 'UTVstay',
+          title: "UTVstay",
           headerLeft: () => null, // No mostrar botón de regreso en dashboard
         }}
       />
-      
-      <Stack.Screen 
-        name="Files" 
+
+      <Stack.Screen
+        name="Files"
         component={FilesScreen}
         options={{
-          title: 'Mis Archivos',
+          title: "Mis Archivos",
         }}
       />
-      
-      <Stack.Screen 
-        name="FileDetail" 
+
+      <Stack.Screen
+        name="FileDetail"
         component={FileDetailScreen}
         options={{
-          title: 'Detalle del Archivo',
+          title: "Detalle del Archivo",
         }}
       />
-      
-      <Stack.Screen 
-        name="FileHistory" 
+
+      <Stack.Screen
+        name="FileHistory"
         component={FileHistoryScreen}
         options={{
-          title: 'Historial de Versiones',
+          title: "Historial de Versiones",
         }}
       />
-      
-      <Stack.Screen 
-        name="FileEdit" 
+
+      <Stack.Screen
+        name="FileEdit"
         component={FileEditScreen}
         options={{
-          title: 'Editar Archivo',
+          title: "Editar Archivo",
           gestureEnabled: false,
         }}
       />
-      
-      <Stack.Screen 
-        name="FileContentViewer" 
+
+      <Stack.Screen
+        name="FileContentViewer"
         component={FileContentViewer}
         options={{
           headerShown: false, // La pantalla maneja su propio header
         }}
       />
-      
-      <Stack.Screen 
-        name="Calendar" 
+
+      <Stack.Screen
+        name="Calendar"
         component={CalendarScreen}
         options={{
-          title: 'Calendario',
+          title: "Calendario",
         }}
       />
-      
-      <Stack.Screen 
-        name="Profile" 
+
+      <Stack.Screen
+        name="Profile"
         component={ProfileScreen}
         options={{
-          title: 'Mi Perfil',
+          title: "Mi Perfil",
         }}
       />
 
-      <Stack.Screen 
-        name="About" 
+      <Stack.Screen
+        name="About"
         component={AboutScreen}
         options={{
-          title: 'Acerca de UTVstay',
+          title: "Acerca de UTVstay",
         }}
       />
 
-      <Stack.Screen 
-        name="Terms" 
+      <Stack.Screen
+        name="Terms"
         component={TermsScreen}
         options={{
-          title: 'Términos y Condiciones',
+          title: "Términos y Condiciones",
         }}
       />
 
-      <Stack.Screen 
-        name="Privacy" 
+      <Stack.Screen
+        name="Privacy"
         component={PrivacyScreen}
         options={{
-          title: 'Política de Privacidad',
+          title: "Política de Privacidad",
         }}
       />
     </Stack.Navigator>
