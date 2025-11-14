@@ -1048,6 +1048,7 @@ const FileEditScreen: React.FC = () => {
         type: "success",
         text: "Archivo guardado correctamente",
       });
+      navigation.navigate("FileHistory", { fileId: fileId.toString() });
     } catch (error: any) {
       console.error("[FileEditScreen] Error saving file:", {
         fileId: fileId.toString(),
@@ -1164,6 +1165,7 @@ const FileEditScreen: React.FC = () => {
           ? `Se creó la versión ${newVersion}`
           : "Cambios de Excel registrados correctamente",
       });
+      navigation.navigate("FileHistory", { fileId: fileId.toString() });
     } catch (error: any) {
       console.error("[FileEditScreen] Error guardando Excel:", {
         fileId: fileId.toString(),
@@ -1254,6 +1256,7 @@ const FileEditScreen: React.FC = () => {
           ? `Se creó la versión ${newVersion}`
           : "Cambios de Excel registrados correctamente",
       });
+      navigation.navigate("FileHistory", { fileId: fileId.toString() });
     } catch (error: any) {
       console.error("[FileEditScreen] Error guardando Excel:", {
         fileId: fileId.toString(),
