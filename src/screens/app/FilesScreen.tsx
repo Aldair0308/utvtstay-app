@@ -17,6 +17,7 @@ import LoadingScreen from '../../components/common/LoadingScreen';
 import CustomAlert from '../../components/common/CustomAlert';
 import useAlert from '../../hooks/useAlert';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { WebView } from 'react-native-webview';
 
 type FilesNavigationProp = StackNavigationProp<AppStackParamList, 'Files'>;
 
@@ -85,7 +86,13 @@ const FilesScreen: React.FC = () => {
     navigation.navigate('FileDetail', { fileId: file.id });
   };
 
-  const getFileIconInfo = (file: File) => {
+  interface FileIconInfo {
+    name?: string;
+    color?: string;
+    imageUri?: string;
+  }
+
+  const getFileIconInfo = (file: File): FileIconInfo => {
     const name = (file.name || '').toLowerCase();
     const mime = (file.mimeType || '').toLowerCase();
 
@@ -95,7 +102,7 @@ const FilesScreen: React.FC = () => {
       mime.includes('msword') ||
       mime.includes('wordprocessingml')
     ) {
-      return { name: 'file-word-outline', color: '#2B579A' };
+      return { imageUri: 'https://upload.wikimedia.org/wikipedia/commons/8/8d/Microsoft_Word_2013-2019_logo.svg' };
     }
 
     if (
@@ -104,11 +111,11 @@ const FilesScreen: React.FC = () => {
       mime.includes('excel') ||
       mime.includes('spreadsheetml')
     ) {
-      return { name: 'file-excel-outline', color: '#217346' };
+      return { imageUri: 'https://upload.wikimedia.org/wikipedia/commons/7/73/Microsoft_Excel_2013-2019_logo.svg' };
     }
 
     if (name.endsWith('.html') || name.endsWith('.htm') || mime.includes('html')) {
-      return { name: 'language-html5', color: '#E34F26' };
+      return { imageUri: 'https://raw.githubusercontent.com/devicons/devicon/master/icons/html5/html5-original-wordmark.svg' };
     }
 
     if (mime.includes('pdf')) return { name: 'file-pdf-box', color: '#D32F2F' };
@@ -118,6 +125,8 @@ const FilesScreen: React.FC = () => {
     if (mime.includes('text')) return { name: 'file-document-outline', color: theme.colors.textSecondary };
     return { name: 'file-outline', color: theme.colors.textSecondary };
   };
+
+  const buildSvgHtml = (uri: string) => `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1" /></head><body style="margin:0;padding:0;background:transparent;display:flex;align-items:center;justify-content:center;"><img src="${uri}" style="width:100%;height:100%;object-fit:contain" /></body></html>`;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -138,7 +147,17 @@ const FilesScreen: React.FC = () => {
         onPress={() => handleFilePress(item)}
       >
         <View style={styles.fileIcon}>
-          <MaterialCommunityIcons name={icon.name} size={24} color={icon.color} />
+          {icon.imageUri ? (
+            <WebView
+              source={{ html: buildSvgHtml(icon.imageUri) }}
+              originWhitelist={["*"]}
+              javaScriptEnabled={false}
+              scrollEnabled={false}
+              style={styles.fileIconWebView}
+            />
+          ) : (
+            <MaterialCommunityIcons name={icon.name as any} size={24} color={icon.color} />
+          )}
         </View>
         <View style={styles.fileInfo}>
           <Text style={styles.fileName} numberOfLines={1}>
@@ -315,6 +334,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: theme.spacing.md,
+  },
+  fileIconWebView: {
+    flex: 1,
+    backgroundColor: 'transparent',
   },
   fileInfo: {
     flex: 1,

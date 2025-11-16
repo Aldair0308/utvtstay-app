@@ -47,7 +47,9 @@ const FileHistoryScreen: React.FC = () => {
         const file = await filesService.getFileById(fileId);
         const name = file?.name || "";
         setDisplayFileName(name);
-        navigation.setOptions({ title: name ? `Historial: ${name}` : "Historial de Versiones" });
+        navigation.setOptions({
+          title: name ? `Historial: ${name}` : "Historial de Versiones",
+        });
       } catch (_) {
         navigation.setOptions({ title: "Historial de Versiones" });
       }
