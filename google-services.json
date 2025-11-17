@@ -1,0 +1,29 @@
+{
+ "project_info": {
+ "project_number": "392967323935",
+ "project_id": "utvstay",
+ "storage_bucket": "utvstay.firebasestorage.app"
+ },
+ "client": [
+ {
+ "client_info": {
+ "mobilesdk_app_id": "1:392967323935:android:3c40f94cae5744e3cf302a",
+ "android_client_info": {
+ "package_name": "com.teamstay.utvtstay"
+ }
+ },
+ "oauth_client": [],
+ "api_key": [
+ {
+ "current_key": "AIzaSyDOnVJhuGXjWeAutXibzYTiDu0AH8TdCkM"
+ }
+ ],
+ "services": {
+ "appinvite_service": {
+ "other_platform_oauth_client": []
+ }
+ }
+ }
+ ],
+ "configuration_version": "1"
+}

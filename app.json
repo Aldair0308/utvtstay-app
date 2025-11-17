@@ -2,7 +2,7 @@
   "expo": {
     "name": "utvtstay",
     "slug": "utvtstay",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -15,9 +15,9 @@
       "supportsTablet": true
     },
     "android": {
-      "icon": "./assets/icon.png",
+      "icon": "./assets/splash-icon.png",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.png",
+        "foregroundImage": "./assets/splash-icon.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
@@ -26,6 +26,18 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "plugins": [
+      "expo-dev-client",
+      "@react-native-firebase/app",
+      [
+        "@react-native-firebase/messaging",
+        {
+          "android": {
+            "requestPermission": true
+          }
+        }
+      ]
+    ],
     "extra": {
       "eas": {
         "projectId": "130fdcf1-1771-47a8-99b5-726b2ff3eca4"

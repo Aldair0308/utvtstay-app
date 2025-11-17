@@ -3,6 +3,8 @@ import { AuthContextType, User } from '../interfaces';
 import { authService } from '../services/auth';
 import { storageService } from '../services/storage';
 import { ERROR_MESSAGES } from '../const/errors';
+import useDeviceRegistration from '../hooks/useDeviceRegistration';
+import { ensureNotificationPermissions } from '../notifications/setup';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -15,6 +17,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const { registerDevice } = useDeviceRegistration();
 
   useEffect(() => {
     checkAuthState();
@@ -54,6 +57,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setToken(userToken);
         setUser(userData);
         setIsLoggedIn(true);
+        try {
+          await ensureNotificationPermissions();
+          await registerDevice();
+        } catch {}
         return { success: true };
       } else if (
         response.success &&
