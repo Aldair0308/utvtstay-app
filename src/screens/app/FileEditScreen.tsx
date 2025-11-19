@@ -177,22 +177,45 @@ const FileEditScreen: React.FC = () => {
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <style>
-        body {
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          margin: 16px;
+        html, body {
+          height: 100%;
+          width: 100%;
+          margin: 0;
           padding: 0;
           background-color: #ffffff;
           color: #333333;
           line-height: 1.6;
+          box-sizing: border-box;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
         .editor {
-          min-height: 400px;
+          min-height: calc(100vh - 0px);
+          width: 100%;
           border: none;
           outline: none;
           font-size: 16px;
+          box-sizing: border-box;
+          padding: 8px;
+          overflow-x: auto;
         }
         .editor:focus {
           outline: none;
+        }
+        /* Tablas: evitar salto de línea y permitir scroll horizontal cuando sea necesario */
+        .editor table {
+          width: max-content;
+          max-width: none;
+          border-collapse: collapse;
+          table-layout: auto;
+        }
+        .editor th, .editor td {
+          white-space: nowrap;
+          word-break: keep-all;
+          vertical-align: top;
+        }
+        .editor img {
+          max-width: 100%;
+          height: auto;
         }
       </style>
     </head>
@@ -694,6 +717,77 @@ const FileEditScreen: React.FC = () => {
           setHasChanges(false);
           return; // ya cargamos contenido editable en WebView
         }
+
+        // Caso especial: el backend devuelve CSS (text/css) o un <style> y no marca editable.
+        // Usar ese CSS como estilo y combinar con el HTML del contenido real del archivo.
+        const contentTypeRaw = String(
+          (editorResponse as any)?.content?.type ||
+            (editorResponse as any)?.data?.type ||
+            ""
+        ).toLowerCase();
+        const styleCandidate:
+          | string
+          | null = typeof (editorResponse as any)?.content?.data === "string"
+          ? (editorResponse as any).content.data
+          : typeof (editorResponse as any)?.data?.content === "string"
+          ? (editorResponse as any).data.content
+          : null;
+
+        const isCssPayload =
+          !!styleCandidate &&
+          (contentTypeRaw.includes("text/css") ||
+            styleCandidate.trim().startsWith("<style"));
+
+        if (isCssPayload) {
+          try {
+            const contentData = await filesService.getFileContent(
+              fileId.toString()
+            );
+            const bodyHtml =
+              contentData?.html || contentData?.content || "<p></p>";
+            const combinedHtml = `<!DOCTYPE html><html><head>${styleCandidate}<style>
+              html,body{height:100%;width:100%;margin:0;padding:0;box-sizing:border-box}
+              .document-preview,.docx-content,.doc-content,.page,.container{max-width:100%!important;width:100%!important;margin:0!important;box-sizing:border-box}
+              body{background:#ffffff;color:#333}
+              /* Reglas de tabla para evitar salto de líneas y permitir scroll horizontal */
+              table{width:max-content;max-width:none;border-collapse:collapse;table-layout:auto}
+              th,td{white-space:nowrap;word-break:keep-all;vertical-align:top}
+            </style></head><body>${bodyHtml}</body></html>`;
+
+            const editorContent: EditorContent = {
+              file: {
+                id: fileId,
+                name: editorResponse?.file?.name || "Archivo",
+                type: "text/html",
+                size: (combinedHtml || "").length,
+                is_word: true,
+                is_excel: false,
+                is_pdf: false,
+                editable: true,
+              },
+              content: {
+                type: "text/html",
+                data: combinedHtml,
+                editable: true,
+                message: (editorResponse as any)?.content?.message,
+              },
+              version: editorResponse?.version || 1,
+              total_versions: editorResponse?.total_versions || 1,
+              last_modified:
+                editorResponse?.last_modified || new Date().toISOString(),
+            };
+
+            setEditorData(editorContent);
+            setHtmlContent(combinedHtml);
+            setHasChanges(false);
+            return;
+          } catch (cssErr) {
+            console.warn(
+              "[FileEditScreen] Error combinando CSS y contenido HTML:",
+              cssErr
+            );
+          }
+        }
         const contentObj = (editorResponse as any)?.content;
         const dataContentObj = (editorResponse as any)?.data?.content;
         const excelJsonSheets = Array.isArray(contentObj)
@@ -808,13 +902,7 @@ const FileEditScreen: React.FC = () => {
         }
 
         // No editable y no Excel: activar fallback a getFileContent y mostrar diagnóstico en pantalla
-        if (rawPreview) {
-          // Mostrar una banda informativa arriba (usaremos statusMessageContainer existente)
-          setStatusMessage(
-            "Editor-content devolvió no editable; activando fallback. Respuesta: " +
-              rawPreview
-          );
-        }
+        // Fallback silencioso sin mostrar diagnóstico en UI
         console.warn(
           "[FileEditScreen] Editor-content no proporcionó contenido editable. Activando fallback a getFileContent."
         );
@@ -893,10 +981,6 @@ const FileEditScreen: React.FC = () => {
 
       // Verificar si el archivo tiene contenido editable
       if (!content) {
-        // Mostrar el cuerpo crudo si estaba disponible y no hay contenido
-        setStatusMessage(
-          "No hay contenido disponible tras fallback. Revisa el cuerpo del API en los logs."
-        );
         Alert.alert(
           "Archivo sin contenido",
           "Este archivo no tiene contenido disponible para editar.",
@@ -1378,13 +1462,6 @@ const FileEditScreen: React.FC = () => {
   if (!editorData) {
     return (
       <SafeAreaView style={styles.container}>
-        {statusMessage ? (
-          <View style={styles.statusMessageContainer}>
-            <Text style={styles.statusMessageText} numberOfLines={10}>
-              {statusMessage}
-            </Text>
-          </View>
-        ) : null}
         <View style={styles.errorContainer}>
           <Ionicons
             name="document-outline"
@@ -1428,13 +1505,6 @@ const FileEditScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {statusMessage ? (
-        <View style={styles.statusMessageContainer}>
-          <Text style={styles.statusMessageText} numberOfLines={10}>
-            {statusMessage}
-          </Text>
-        </View>
-      ) : null}
       {isExcelView ? (
         <View style={styles.flexBody}>
           {/* Editor Excel a pantalla completa */}
@@ -1755,17 +1825,19 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
   },
   webViewContainer: {
-    minHeight: 400,
-    maxHeight: 600,
-    margin: theme.spacing.md,
-    borderRadius: 8,
+    flex: 1,
+    minHeight: 0,
+    margin: 0,
+    borderRadius: 0,
     overflow: "hidden",
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderWidth: 0,
+    borderColor: "transparent",
   },
   webView: {
     flex: 1,
     backgroundColor: theme.colors.background,
+    width: "100%",
+    height: "100%",
   },
   webViewLoading: {
     flex: 1,

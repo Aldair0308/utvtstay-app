@@ -7,6 +7,7 @@ import {
   StyleSheet,
   RefreshControl,
   TextInput,
+  Image,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -18,6 +19,7 @@ import CustomAlert from '../../components/common/CustomAlert';
 import useAlert from '../../hooks/useAlert';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
+import { Platform } from 'react-native';
 
 type FilesNavigationProp = StackNavigationProp<AppStackParamList, 'Files'>;
 
@@ -148,13 +150,21 @@ const FilesScreen: React.FC = () => {
       >
         <View style={styles.fileIcon}>
           {icon.imageUri ? (
-            <WebView
-              source={{ html: buildSvgHtml(icon.imageUri) }}
-              originWhitelist={["*"]}
-              javaScriptEnabled={false}
-              scrollEnabled={false}
-              style={styles.fileIconWebView}
-            />
+            Platform.OS === 'web' ? (
+              <Image
+                source={{ uri: icon.imageUri }}
+                style={styles.fileIconImage}
+                resizeMode={'contain'}
+              />
+            ) : (
+              <WebView
+                source={{ html: buildSvgHtml(icon.imageUri) }}
+                originWhitelist={["*"]}
+                javaScriptEnabled={false}
+                scrollEnabled={false}
+                style={styles.fileIconWebView}
+              />
+            )
           ) : (
             <MaterialCommunityIcons name={icon.name as any} size={24} color={icon.color} />
           )}
@@ -338,6 +348,10 @@ const styles = StyleSheet.create({
   fileIconWebView: {
     flex: 1,
     backgroundColor: 'transparent',
+  },
+  fileIconImage: {
+    width: '100%',
+    height: '100%',
   },
   fileInfo: {
     flex: 1,

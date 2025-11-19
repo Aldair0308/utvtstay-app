@@ -14,9 +14,11 @@ type RegisterPayload = {
 
 const getFCMTokenAuto = async (): Promise<string | null> => {
   try {
-    const messaging = require("@react-native-firebase/messaging").default;
-    await messaging().requestPermission();
-    const token = await messaging().getToken();
+    const messagingModule = await import("@react-native-firebase/messaging");
+    const appModule = await import("@react-native-firebase/app");
+    const messagingInstance = messagingModule.getMessaging(appModule.getApp());
+    await messagingModule.requestPermission(messagingInstance);
+    const token = await messagingModule.getToken(messagingInstance);
     if (token) return token;
   } catch {}
   try {

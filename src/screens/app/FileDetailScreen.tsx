@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Alert,
   Share,
+  Image,
 } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
@@ -17,6 +18,8 @@ import LoadingScreen from "../../components/common/LoadingScreen";
 import { useDateFormatter } from "../../hooks/useDateFormatter";
 import { useFileFormatter } from "../../hooks/useFileFormatter";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { WebView } from "react-native-webview";
+import { Platform } from "react-native";
 
 type FileDetailNavigationProp = StackNavigationProp<
   AppStackParamList,
@@ -175,7 +178,7 @@ const FileDetailScreen: React.FC = () => {
       mime.includes("msword") ||
       mime.includes("wordprocessingml")
     ) {
-      return { name: "file-word-outline", color: "#2B579A" };
+      return { imageUri: "https://upload.wikimedia.org/wikipedia/commons/8/8d/Microsoft_Word_2013-2019_logo.svg" };
     }
 
     if (
@@ -184,7 +187,7 @@ const FileDetailScreen: React.FC = () => {
       mime.includes("excel") ||
       mime.includes("spreadsheetml")
     ) {
-      return { name: "file-excel-outline", color: "#217346" };
+      return { imageUri: "https://upload.wikimedia.org/wikipedia/commons/7/73/Microsoft_Excel_2013-2019_logo.svg" };
     }
 
     if (
@@ -192,7 +195,7 @@ const FileDetailScreen: React.FC = () => {
       name.endsWith(".htm") ||
       mime.includes("html")
     ) {
-      return { name: "language-html5", color: "#E34F26" };
+      return { imageUri: "https://raw.githubusercontent.com/devicons/devicon/master/icons/html5/html5-original-wordmark.svg" };
     }
 
     if (mime.includes("pdf")) return { name: "file-pdf-box", color: "#D32F2F" };
@@ -209,6 +212,8 @@ const FileDetailScreen: React.FC = () => {
       };
     return { name: "file-outline", color: theme.colors.textSecondary };
   };
+
+  const buildSvgHtml = (uri: string) => `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1" /></head><body style="margin:0;padding:0;background:transparent;display:flex;align-items:center;justify-content:center;"><img src="${uri}" style="width:100%;height:100%;object-fit:contain" /></body></html>`;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -251,11 +256,28 @@ const FileDetailScreen: React.FC = () => {
         <View style={styles.fileIconContainer}>
           {(() => {
             const icon = getFileIconInfo(file);
+            if ((icon as any).imageUri) {
+              return Platform.OS === "web" ? (
+                <Image
+                  source={{ uri: (icon as any).imageUri }}
+                  style={styles.fileIconImage}
+                  resizeMode={"contain"}
+                />
+              ) : (
+                <WebView
+                  source={{ html: buildSvgHtml((icon as any).imageUri) }}
+                  originWhitelist={["*"]}
+                  javaScriptEnabled={false}
+                  scrollEnabled={false}
+                  style={styles.fileIconWebView}
+                />
+              );
+            }
             return (
               <MaterialCommunityIcons
-                name={icon.name}
+                name={(icon as any).name}
                 size={40}
-                color={icon.color}
+                color={(icon as any).color}
               />
             );
           })()}
@@ -366,6 +388,15 @@ const styles = StyleSheet.create({
   },
   fileIconLarge: {
     fontSize: 40,
+  },
+  fileIconWebView: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: "transparent",
+  },
+  fileIconImage: {
+    width: "100%",
+    height: "100%",
   },
   fileName: {
     ...theme.typography.styles.h2,

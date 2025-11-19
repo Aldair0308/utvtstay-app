@@ -1,5 +1,5 @@
 import { registerRootComponent } from 'expo';
-import messaging from '@react-native-firebase/messaging';
+import { Platform } from 'react-native';
 
 import App from './App';
 
@@ -8,4 +8,15 @@ import App from './App';
 // the environment is set up appropriately
 registerRootComponent(App);
 
-messaging().setBackgroundMessageHandler(async () => {});
+(globalThis as any).RNFB_SILENCE_MODULAR_DEPRECATION_WARNINGS = true;
+
+if (Platform.OS !== 'web') {
+  (async () => {
+    try {
+      const messagingModule = await import('@react-native-firebase/messaging');
+      const appModule = await import('@react-native-firebase/app');
+      const messagingInstance = messagingModule.getMessaging(appModule.getApp());
+      await messagingModule.setBackgroundMessageHandler(messagingInstance, async () => {});
+    } catch {}
+  })();
+}
