@@ -8,6 +8,7 @@ import {
   RefreshControl,
   TextInput,
   Image,
+  ImageSourcePropType,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -18,8 +19,7 @@ import LoadingScreen from '../../components/common/LoadingScreen';
 import CustomAlert from '../../components/common/CustomAlert';
 import useAlert from '../../hooks/useAlert';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { WebView } from 'react-native-webview';
-import { Platform } from 'react-native';
+ 
 
 type FilesNavigationProp = StackNavigationProp<AppStackParamList, 'Files'>;
 
@@ -91,7 +91,7 @@ const FilesScreen: React.FC = () => {
   interface FileIconInfo {
     name?: string;
     color?: string;
-    imageUri?: string;
+    imageSource?: ImageSourcePropType;
   }
 
   const getFileIconInfo = (file: File): FileIconInfo => {
@@ -104,7 +104,7 @@ const FilesScreen: React.FC = () => {
       mime.includes('msword') ||
       mime.includes('wordprocessingml')
     ) {
-      return { imageUri: 'https://upload.wikimedia.org/wikipedia/commons/8/8d/Microsoft_Word_2013-2019_logo.svg' };
+      return { imageSource: require('../../../assets/img/Word.png') };
     }
 
     if (
@@ -113,11 +113,11 @@ const FilesScreen: React.FC = () => {
       mime.includes('excel') ||
       mime.includes('spreadsheetml')
     ) {
-      return { imageUri: 'https://upload.wikimedia.org/wikipedia/commons/7/73/Microsoft_Excel_2013-2019_logo.svg' };
+      return { imageSource: require('../../../assets/img/Excel.png') };
     }
 
     if (name.endsWith('.html') || name.endsWith('.htm') || mime.includes('html')) {
-      return { imageUri: 'https://raw.githubusercontent.com/devicons/devicon/master/icons/html5/html5-original-wordmark.svg' };
+      return { imageSource: require('../../../assets/img/html.png') };
     }
 
     if (mime.includes('pdf')) return { name: 'file-pdf-box', color: '#D32F2F' };
@@ -128,7 +128,18 @@ const FilesScreen: React.FC = () => {
     return { name: 'file-outline', color: theme.colors.textSecondary };
   };
 
-  const buildSvgHtml = (uri: string) => `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1" /></head><body style="margin:0;padding:0;background:transparent;display:flex;align-items:center;justify-content:center;"><img src="${uri}" style="width:100%;height:100%;object-fit:contain" /></body></html>`;
+  const FileTypeIcon: React.FC<{ imageSource?: ImageSourcePropType; iconName?: string; color?: string }> = ({ imageSource, iconName, color }) => {
+    if (!imageSource) {
+      return <MaterialCommunityIcons name={(iconName as any) || ('file-outline' as any)} size={24} color={color || theme.colors.textSecondary} />;
+    }
+    return (
+      <Image
+        source={imageSource}
+        style={styles.fileIconImage}
+        resizeMode={'contain'}
+      />
+    );
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -149,25 +160,7 @@ const FilesScreen: React.FC = () => {
         onPress={() => handleFilePress(item)}
       >
         <View style={styles.fileIcon}>
-          {icon.imageUri ? (
-            Platform.OS === 'web' ? (
-              <Image
-                source={{ uri: icon.imageUri }}
-                style={styles.fileIconImage}
-                resizeMode={'contain'}
-              />
-            ) : (
-              <WebView
-                source={{ html: buildSvgHtml(icon.imageUri) }}
-                originWhitelist={["*"]}
-                javaScriptEnabled={false}
-                scrollEnabled={false}
-                style={styles.fileIconWebView}
-              />
-            )
-          ) : (
-            <MaterialCommunityIcons name={icon.name as any} size={24} color={icon.color} />
-          )}
+          <FileTypeIcon imageSource={icon.imageSource} iconName={icon.name as any} color={icon.color} />
         </View>
         <View style={styles.fileInfo}>
           <Text style={styles.fileName} numberOfLines={1}>
@@ -344,10 +337,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: theme.spacing.md,
-  },
-  fileIconWebView: {
-    flex: 1,
-    backgroundColor: 'transparent',
+    overflow: 'hidden',
   },
   fileIconImage: {
     width: '100%',

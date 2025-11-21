@@ -18,8 +18,6 @@ import LoadingScreen from "../../components/common/LoadingScreen";
 import { useDateFormatter } from "../../hooks/useDateFormatter";
 import { useFileFormatter } from "../../hooks/useFileFormatter";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { WebView } from "react-native-webview";
-import { Platform } from "react-native";
 
 type FileDetailNavigationProp = StackNavigationProp<
   AppStackParamList,
@@ -178,7 +176,7 @@ const FileDetailScreen: React.FC = () => {
       mime.includes("msword") ||
       mime.includes("wordprocessingml")
     ) {
-      return { imageUri: "https://upload.wikimedia.org/wikipedia/commons/8/8d/Microsoft_Word_2013-2019_logo.svg" };
+      return { imageSource: require("../../../assets/img/Word.png") };
     }
 
     if (
@@ -187,7 +185,7 @@ const FileDetailScreen: React.FC = () => {
       mime.includes("excel") ||
       mime.includes("spreadsheetml")
     ) {
-      return { imageUri: "https://upload.wikimedia.org/wikipedia/commons/7/73/Microsoft_Excel_2013-2019_logo.svg" };
+      return { imageSource: require("../../../assets/img/Excel.png") };
     }
 
     if (
@@ -195,7 +193,7 @@ const FileDetailScreen: React.FC = () => {
       name.endsWith(".htm") ||
       mime.includes("html")
     ) {
-      return { imageUri: "https://raw.githubusercontent.com/devicons/devicon/master/icons/html5/html5-original-wordmark.svg" };
+      return { imageSource: require("../../../assets/img/html.png") };
     }
 
     if (mime.includes("pdf")) return { name: "file-pdf-box", color: "#D32F2F" };
@@ -213,7 +211,7 @@ const FileDetailScreen: React.FC = () => {
     return { name: "file-outline", color: theme.colors.textSecondary };
   };
 
-  const buildSvgHtml = (uri: string) => `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1" /></head><body style="margin:0;padding:0;background:transparent;display:flex;align-items:center;justify-content:center;"><img src="${uri}" style="width:100%;height:100%;object-fit:contain" /></body></html>`;
+ 
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -256,20 +254,12 @@ const FileDetailScreen: React.FC = () => {
         <View style={styles.fileIconContainer}>
           {(() => {
             const icon = getFileIconInfo(file);
-            if ((icon as any).imageUri) {
-              return Platform.OS === "web" ? (
+            if ((icon as any).imageSource) {
+              return (
                 <Image
-                  source={{ uri: (icon as any).imageUri }}
+                  source={(icon as any).imageSource}
                   style={styles.fileIconImage}
                   resizeMode={"contain"}
-                />
-              ) : (
-                <WebView
-                  source={{ html: buildSvgHtml((icon as any).imageUri) }}
-                  originWhitelist={["*"]}
-                  javaScriptEnabled={false}
-                  scrollEnabled={false}
-                  style={styles.fileIconWebView}
                 />
               );
             }

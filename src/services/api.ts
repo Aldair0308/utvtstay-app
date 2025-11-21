@@ -1,9 +1,10 @@
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { ERROR_MESSAGES } from '../const/errors';
+import { ERROR_MESSAGES } from "../const/errors";
 
 // Cambiar por la URL real de tu API
 const API_BASE_URL = "https://estadias-production.up.railway.app/api";
+// const API_BASE_URL = "http://192.168.100.142:8000/api";
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -15,21 +16,30 @@ const apiClient = axios.create({
 });
 
 const showError = (message: string) => {
-    alert(message);
-  };
+  alert(message);
+};
 // Interceptor para agregar token de autenticación
 apiClient.interceptors.request.use(
   async (config) => {
     try {
       const token = await AsyncStorage.getItem("userToken");
       console.log("[API] Request to:", config.url);
-      console.log("[API] Token found:", token ? `${token.substring(0, 20)}...` : "No token");
-      
+      console.log(
+        "[API] Token found:",
+        token ? `${token.substring(0, 20)}...` : "No token"
+      );
+
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
-        console.log("[API] Authorization header set:", `Bearer ${token.substring(0, 20)}...`);
+        console.log(
+          "[API] Authorization header set:",
+          `Bearer ${token.substring(0, 20)}...`
+        );
       } else {
-        console.warn("[API] No token found in storage for request to:", config.url);
+        console.warn(
+          "[API] No token found in storage for request to:",
+          config.url
+        );
       }
     } catch (error) {
       console.error("[API] Error getting token from storage:", error);
@@ -55,14 +65,19 @@ const processQueue = (error: any, token: string | null = null) => {
       resolve(token);
     }
   });
-  
+
   failedQueue = [];
 };
 
 // Interceptor de respuestas: degradar el 500 de editor-content (Excel) a WARN
 apiClient.interceptors.response.use(
   (response) => {
-    console.log("[API] Response from:", response.config.url, "Status:", response.status);
+    console.log(
+      "[API] Response from:",
+      response.config.url,
+      "Status:",
+      response.status
+    );
     return response;
   },
   async (error) => {
@@ -74,10 +89,12 @@ apiClient.interceptors.response.use(
     const isNonWordEditorContent =
       status === 500 &&
       url?.includes("/editor-content") &&
-      (
-        String(error.response?.data?.message || "").toLowerCase().includes("not a word document") ||
-        String(error.response?.data?.error || "").toLowerCase().includes("failed to get editor content")
-      );
+      (String(error.response?.data?.message || "")
+        .toLowerCase()
+        .includes("not a word document") ||
+        String(error.response?.data?.error || "")
+          .toLowerCase()
+          .includes("failed to get editor content"));
 
     // Silenciar el caso esperado (editor-content no Word) para no ensuciar consola
     if (!isNonWordEditorContent) {
@@ -86,39 +103,41 @@ apiClient.interceptors.response.use(
         status,
         message: error.message,
         data: error.response?.data,
-        isRetry: originalRequest._retry
+        isRetry: originalRequest._retry,
       });
     }
-    
+
     if (status === 401 && !originalRequest._retry) {
       console.warn("[API] 401 Unauthorized - Attempting token refresh");
-      
+
       if (isRefreshing) {
         console.log("[API] Token refresh already in progress, queuing request");
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
-        }).then(token => {
-          originalRequest.headers.Authorization = `Bearer ${token}`;
-          return apiClient(originalRequest);
-        }).catch(err => {
-          return Promise.reject(err);
-        });
+        })
+          .then((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return apiClient(originalRequest);
+          })
+          .catch((err) => {
+            return Promise.reject(err);
+          });
       }
-      
+
       originalRequest._retry = true;
       isRefreshing = true;
-      
+
       try {
         // Intentar obtener un nuevo token (esto depende de tu implementación)
         // Por ahora, simplemente limpiamos la sesión
         console.log("[API] Clearing session due to 401 error");
         await AsyncStorage.multiRemove(["userToken", "userData", "isLoggedIn"]);
-        
+
         processQueue(error, null);
-        
+
         // Aquí podrías disparar un evento para redirigir al login
         // o usar un navigation service
-        
+
         return Promise.reject(error);
       } catch (refreshError) {
         console.error("[API] Error during token refresh:", refreshError);
@@ -131,7 +150,7 @@ apiClient.interceptors.response.use(
     } else if (status === 403) {
       console.warn("[API] 403 Forbidden - Insufficient permissions for:", url);
     }
-    
+
     return Promise.reject(error);
   }
 );
@@ -166,4 +185,4 @@ export const handleApiError = (error: any): string => {
   } else {
     return ERROR_MESSAGES.UNEXPECTED_ERROR;
   }
-}
+};
