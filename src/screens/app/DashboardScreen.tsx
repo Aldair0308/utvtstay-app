@@ -7,6 +7,8 @@ import {
   StyleSheet,
   Alert,
   RefreshControl,
+  Image,
+  ImageSourcePropType,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -16,6 +18,7 @@ import { filesService } from '../../services/files';
 import { calendarService } from '../../services/calendar';
 import { theme } from '../../theme';
 import LoadingScreen from '../../components/common/LoadingScreen';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 type DashboardNavigationProp = StackNavigationProp<AppStackParamList, 'Dashboard'>;
 
@@ -87,6 +90,59 @@ const DashboardScreen: React.FC = () => {
       default:
         return theme.colors.primary;
     }
+  };
+
+  interface FileIconInfo {
+    name?: string;
+    color?: string;
+    imageSource?: ImageSourcePropType;
+  }
+
+  const getFileIconInfo = (file: File): FileIconInfo => {
+    const name = (file.name || '').toLowerCase();
+    const mime = (file.mimeType || '').toLowerCase();
+
+    if (
+      name.endsWith('.doc') ||
+      name.endsWith('.docx') ||
+      mime.includes('msword') ||
+      mime.includes('wordprocessingml')
+    ) {
+      return { imageSource: require('../../../assets/img/Word.png') };
+    }
+
+    if (
+      name.endsWith('.xls') ||
+      name.endsWith('.xlsx') ||
+      mime.includes('excel') ||
+      mime.includes('spreadsheetml')
+    ) {
+      return { imageSource: require('../../../assets/img/Excel.png') };
+    }
+
+    if (name.endsWith('.html') || name.endsWith('.htm') || mime.includes('html')) {
+      return { imageSource: require('../../../assets/img/html.png') };
+    }
+
+    if (mime.includes('pdf')) return { name: 'file-pdf-box', color: '#D32F2F' };
+    if (mime.includes('image')) return { name: 'file-image-outline', color: theme.colors.textSecondary };
+    if (mime.includes('video')) return { name: 'file-video-outline', color: theme.colors.textSecondary };
+    if (mime.includes('audio')) return { name: 'file-music-outline', color: theme.colors.textSecondary };
+    if (mime.includes('text')) return { name: 'file-document-outline', color: theme.colors.textSecondary };
+    return { name: 'file-outline', color: theme.colors.textSecondary };
+  };
+
+  const FileTypeIcon: React.FC<{ imageSource?: ImageSourcePropType; iconName?: string; color?: string }> = ({ imageSource, iconName, color }) => {
+    if (!imageSource) {
+      return <MaterialCommunityIcons name={(iconName as any) || ('file-outline' as any)} size={24} color={color || theme.colors.textSecondary} />;
+    }
+    return (
+      <Image
+        source={imageSource}
+        style={styles.fileIconImage}
+        resizeMode={'contain'}
+      />
+    );
   };
 
   const formatEventDate = (event: CalendarEvent): string => {
@@ -229,6 +285,14 @@ const DashboardScreen: React.FC = () => {
               style={styles.fileItem}
               onPress={() => navigation.navigate('FileDetail', { fileId: file.id })}
             >
+              {(() => {
+                const icon = getFileIconInfo(file);
+                return (
+                  <View style={styles.fileIcon}>
+                    <FileTypeIcon imageSource={icon.imageSource} iconName={icon.name as any} color={icon.color} />
+                  </View>
+                );
+              })()}
               <View style={styles.fileInfo}>
                 <Text style={styles.fileName}>{file.name}</Text>
                 <Text style={styles.fileDate}>
@@ -368,6 +432,16 @@ const styles = StyleSheet.create({
     ...theme.components.card,
     marginBottom: theme.spacing.sm,
   },
+  fileIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: theme.dimensions.borderRadius.md,
+    backgroundColor: theme.colors.backgroundTertiary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: theme.spacing.md,
+    overflow: 'hidden',
+  },
   fileInfo: {
     flex: 1,
   },
@@ -383,6 +457,10 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
+  },
+  fileIconImage: {
+    width: '100%',
+    height: '100%',
   },
   eventItem: {
     flexDirection: 'row',
