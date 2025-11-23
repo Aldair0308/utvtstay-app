@@ -4,6 +4,8 @@ export interface File {
   content: string;
   description?: string;
   version: number;
+  currentVersion?: number;
+  totalVersions?: number;
   status: 'active' | 'inactive' | 'pending' | 'reviewed' | 'approved' | 'rejected';
   createdAt: string;
   updatedAt: string;

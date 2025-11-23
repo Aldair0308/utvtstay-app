@@ -122,24 +122,12 @@ const FilesScreen: React.FC = () => {
   const handleFilePress = async (file: File) => {
     try {
       const fileData = await filesService.getFileById(file.id);
-      const history = await filesService.getFileHistory(file.id);
       const isCompleted = !!(
         fileData.completed || fileData.status === "completed"
       );
-      let latestChangeId: string | undefined = undefined;
-      let latestVersion: number | undefined = undefined;
-      if (history && history.length > 0) {
-        const sorted = [...history].sort((a, b) => b.version - a.version);
-        const currentV = sorted[0];
-        latestVersion = currentV.version;
-        latestChangeId =
-          currentV.version === 1 ? undefined : currentV.id.toString();
-      }
       navigation.navigate("FileDetail", {
         fileId: file.id,
         isCompleted,
-        latestChangeId,
-        latestVersion,
       });
     } catch {
       navigation.navigate("FileDetail", { fileId: file.id });

@@ -109,6 +109,9 @@ export const filesService = {
           content: file.content || "",
           description: file.description || file.tutor_observations || "",
           version: file.version || 1,
+          currentVersion:
+            file.current_version ?? file.version ?? 1,
+          totalVersions: file.total_versions ?? undefined,
           status: isCompleted ? "completed" : (file.status || "pending"),
           createdAt:
             file.created_at || file.createdAt || new Date().toISOString(),

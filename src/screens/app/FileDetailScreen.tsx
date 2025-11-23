@@ -53,6 +53,9 @@ const FileDetailScreen: React.FC = () => {
   const [lastVersion, setLastVersion] = useState<number | undefined>(
     latestVersionParam
   );
+  const [historyCount, setHistoryCount] = useState<number | undefined>(
+    undefined
+  );
   const [lastVersionLabel, setLastVersionLabel] = useState<string | undefined>(
     undefined
   );
@@ -92,66 +95,20 @@ const FileDetailScreen: React.FC = () => {
       const fileData = await filesService.getFileById(fileId);
       setFile(fileData);
 
-      // Si es un archivo de texto, cargar el contenido actual
-      if (
-        fileData.mimeType.includes("text") ||
-        fileData.mimeType.includes("json")
-      ) {
-        try {
-          // Usar la misma lógica que FileHistoryScreen para obtener la versión actual
-          const fileHistory = await filesService.getFileHistory(fileId);
+      const cv = fileData.currentVersion ?? fileData.version;
+      const tv = fileData.totalVersions ?? undefined;
+      setLastVersion(cv);
+      setLastChangeId(undefined);
+      setLastVersionLabel(
+        typeof tv === "number" ? computeSequentialLabel(tv - 1) : undefined
+      );
+      setHistoryCount(tv);
 
-          let content = "";
-          if (fileHistory && fileHistory.length > 0) {
-            // Mapear y ordenar igual que en FileHistoryScreen
-            const mappedHistory = fileHistory.map((item, index) => ({
-              id: item.id.toString(),
-              version: item.version,
-              isCurrentVersion: index === 0, // La primera versión es la más reciente
-            }));
-
-            const sortedHistory = mappedHistory.sort(
-              (a, b) => b.version - a.version
-            );
-
-            // Encontrar la versión actual (la primera después del ordenamiento)
-            const currentVersion = sortedHistory[0];
-            setLastVersion(currentVersion.version);
-            setLastChangeId(
-              currentVersion.version === 1 ? undefined : currentVersion.id
-            );
-            setLastVersionLabel(
-              computeSequentialLabel(sortedHistory.length - 1)
-            );
-
-            // Usar la misma lógica que FileContentViewer para obtener el contenido
-            if (currentVersion.version === 1) {
-              // Si es la versión 1, usar fileId para obtener el contenido del archivo original
-              const contentData = await filesService.getFileContent(fileId);
-              content = contentData.content || "";
-            } else {
-              // Si es otra versión, usar changeId para obtener el contenido del cambio
-              const contentData = await filesService.getFileChangeContent(
-                currentVersion.id
-              );
-              content = contentData.content || "";
-            }
-          } else {
-            // Si no hay historial, usar getFileContent como fallback
-            const contentData = await filesService.getFileContent(fileId);
-            content = contentData.content || "";
-          }
-
-          setCurrentContent(content);
-          setFileContent(
-            content.substring(0, 500) + (content.length > 500 ? "..." : "")
-          );
-        } catch (contentError) {
-          console.error("Error loading file content:", contentError);
-          setFileContent("No se pudo cargar el contenido del archivo");
-          setCurrentContent("");
-        }
-      }
+      const content = fileData.content || "";
+      setCurrentContent(content);
+      setFileContent(
+        content.substring(0, 500) + (content.length > 500 ? "..." : "")
+      );
     } catch (error) {
       console.error("Error loading file detail:", error);
       Alert.alert("Error", "No se pudo cargar el archivo");
@@ -373,8 +330,10 @@ const FileDetailScreen: React.FC = () => {
         </View>
 
         <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Versión:</Text>
-          <Text style={styles.infoValue}>{file.version}</Text>
+          <Text style={styles.infoLabel}>Versión actual:</Text>
+          <Text style={styles.infoValue}>
+            {file.currentVersion ?? file.version}
+          </Text>
         </View>
       </View>
 
@@ -407,21 +366,12 @@ const FileDetailScreen: React.FC = () => {
             <TouchableOpacity
               style={styles.actionButton}
               onPress={() => {
-                if (lastVersion === 1 || !lastChangeId) {
-                  navigation.navigate("FileContentViewer", {
-                    fileId: file?.id,
-                    title: file?.name || "Archivo",
-                    version: lastVersion,
-                    versionLabel: lastVersionLabel,
-                  });
-                } else {
-                  navigation.navigate("FileContentViewer", {
-                    changeId: lastChangeId as string,
-                    title: file?.name || "Archivo",
-                    version: lastVersion,
-                    versionLabel: lastVersionLabel,
-                  });
-                }
+                navigation.navigate("FileContentViewer", {
+                  fileId: file?.id,
+                  title: file?.name || "Archivo",
+                  version: lastVersion,
+                  versionLabel: lastVersionLabel,
+                });
               }}
             >
               <Text style={styles.actionIcon}>👁️</Text>
