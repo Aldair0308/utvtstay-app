@@ -9,7 +9,12 @@ import {
   RefreshControl,
   BackHandler,
 } from "react-native";
-import { useNavigation, useRoute, RouteProp, useFocusEffect } from "@react-navigation/native";
+import {
+  useNavigation,
+  useRoute,
+  RouteProp,
+  useFocusEffect,
+} from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { AppStackParamList, FileVersion } from "../../interfaces";
 import { filesService } from "../../services/files";
@@ -30,6 +35,7 @@ interface FileHistoryItem {
   size: number;
   changes: string;
   isCurrentVersion: boolean;
+  displayVersionLabel: string;
 }
 
 const FileHistoryScreen: React.FC = () => {
@@ -76,23 +82,29 @@ const FileHistoryScreen: React.FC = () => {
     try {
       const historyData = await filesService.getFileHistory(fileId);
 
-      // Mapear los datos reales de la API al formato de la interfaz
-      const mappedHistory: FileHistoryItem[] = historyData.map(
-        (item, index) => ({
-          id: item.id.toString(),
-          version: item.version,
-          createdAt: item.created_at,
-          createdBy: `Usuario ${item.created_by}`, // En producción, esto debería ser el nombre real del usuario
-          size: item.content ? item.content.length : 0, // Calcular tamaño basado en contenido
-          changes: item.changes_description || "Sin descripción de cambios",
-          isCurrentVersion: index === 0, // La primera versión es la más reciente
-        })
-      );
+      const baseHistory = historyData.map((item) => ({
+        id: item.id.toString(),
+        version: item.version,
+        createdAt: item.created_at,
+        createdBy: `Usuario ${item.created_by}`,
+        size: item.content ? item.content.length : 0,
+        changes: item.changes_description || "Sin descripción de cambios",
+      }));
 
-      // Ordenar por versión descendente (más reciente primero)
-      const sortedHistory = mappedHistory.sort((a, b) => b.version - a.version);
+      const ascending = baseHistory.sort((a, b) => {
+        const da = new Date(a.createdAt).getTime();
+        const db = new Date(b.createdAt).getTime();
+        if (!isNaN(da) && !isNaN(db)) return da - db;
+        return a.version - b.version;
+      });
 
-      setHistory(sortedHistory);
+      const withLabels: FileHistoryItem[] = ascending.map((item, idx, arr) => ({
+        ...item,
+        displayVersionLabel: computeSequentialLabel(idx),
+        isCurrentVersion: idx === arr.length - 1,
+      }));
+
+      setHistory(withLabels.slice().reverse());
     } catch (error) {
       console.error("Error loading file history:", error);
       Alert.alert("Error", "No se pudo cargar el historial del archivo");
@@ -109,7 +121,7 @@ const FileHistoryScreen: React.FC = () => {
 
   const handleViewVersion = (item: FileHistoryItem) => {
     Alert.alert(
-      `Versión ${item.version}`,
+      `Versión ${item.displayVersionLabel}`,
       `¿Qué deseas hacer con esta versión?`,
       [
         { text: "Cancelar", style: "cancel" },
@@ -134,12 +146,14 @@ const FileHistoryScreen: React.FC = () => {
         fileId: fileId,
         title: displayFileName || "Archivo",
         version: item.version,
+        versionLabel: item.displayVersionLabel,
       });
     } else {
       navigation.navigate("FileContentViewer", {
         changeId: item.id,
         title: displayFileName || "Archivo",
         version: item.version,
+        versionLabel: item.displayVersionLabel,
       });
     }
   };
@@ -147,7 +161,7 @@ const FileHistoryScreen: React.FC = () => {
   const restoreVersion = (item: FileHistoryItem) => {
     Alert.alert(
       "Confirmar Restauración",
-      `¿Estás seguro que deseas restaurar la versión ${item.version}? Esto creará una nueva versión con el contenido seleccionado.`,
+      `¿Estás seguro que deseas restaurar la versión ${item.displayVersionLabel}? Esto creará una nueva versión con el contenido seleccionado.`,
       [
         { text: "Cancelar", style: "cancel" },
         {
@@ -176,6 +190,14 @@ const FileHistoryScreen: React.FC = () => {
     const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  };
+
+  const computeSequentialLabel = (index: number): string => {
+    if (index <= 8) return `1.${index + 1}`;
+    const offset = index - 9;
+    const major = 2 + Math.floor(offset / 10);
+    const minor = offset % 10;
+    return `${major}.${minor}`;
   };
 
   const formatDate = (dateString: string): string => {
@@ -215,7 +237,7 @@ const FileHistoryScreen: React.FC = () => {
               item.isCurrentVersion && styles.currentVersionText,
             ]}
           >
-            Versión {item.version}
+            Versión {item.displayVersionLabel}
             {item.isCurrentVersion && " (Actual)"}
           </Text>
           <Text style={styles.itemDate}>{formatDate(item.createdAt)}</Text>

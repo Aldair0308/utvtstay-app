@@ -33,6 +33,7 @@ export type AppStackParamList = {
     changeId?: string;
     title: string;
     version?: number;
+    versionLabel?: string;
   };
   Calendar: undefined;
   Profile: undefined;

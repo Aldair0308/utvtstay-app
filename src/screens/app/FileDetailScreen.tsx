@@ -38,6 +38,7 @@ const FileDetailScreen: React.FC = () => {
   const [currentContent, setCurrentContent] = useState<string>("");
   const [lastChangeId, setLastChangeId] = useState<string | undefined>(latestChangeIdParam);
   const [lastVersion, setLastVersion] = useState<number | undefined>(latestVersionParam);
+  const [lastVersionLabel, setLastVersionLabel] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     loadFileDetail();
@@ -66,7 +67,6 @@ const FileDetailScreen: React.FC = () => {
               isCurrentVersion: index === 0, // La primera versión es la más reciente
             }));
 
-            // Ordenar por versión descendente (más reciente primero)
             const sortedHistory = mappedHistory.sort(
               (a, b) => b.version - a.version
             );
@@ -75,6 +75,7 @@ const FileDetailScreen: React.FC = () => {
             const currentVersion = sortedHistory[0];
             setLastVersion(currentVersion.version);
             setLastChangeId(currentVersion.version === 1 ? undefined : currentVersion.id);
+            setLastVersionLabel(computeSequentialLabel(sortedHistory.length - 1));
 
             // Usar la misma lógica que FileContentViewer para obtener el contenido
             if (currentVersion.version === 1) {
@@ -121,6 +122,14 @@ const FileDetailScreen: React.FC = () => {
         initialContent: currentContent, // Contenido de la versión más reciente
       });
     }
+  };
+
+  const computeSequentialLabel = (index: number): string => {
+    if (index <= 8) return `1.${index + 1}`;
+    const offset = index - 9;
+    const major = 2 + Math.floor(offset / 10);
+    const minor = offset % 10;
+    return `${major}.${minor}`;
   };
 
   const handleViewHistory = () => {
@@ -348,9 +357,9 @@ const FileDetailScreen: React.FC = () => {
               style={styles.actionButton}
               onPress={() => {
                 if (lastVersion === 1 || !lastChangeId) {
-                  navigation.navigate("FileContentViewer", { fileId: file?.id, title: file?.name || "Archivo", version: lastVersion });
+                  navigation.navigate("FileContentViewer", { fileId: file?.id, title: file?.name || "Archivo", version: lastVersion, versionLabel: lastVersionLabel });
                 } else {
-                  navigation.navigate("FileContentViewer", { changeId: lastChangeId as string, title: file?.name || "Archivo", version: lastVersion });
+                  navigation.navigate("FileContentViewer", { changeId: lastChangeId as string, title: file?.name || "Archivo", version: lastVersion, versionLabel: lastVersionLabel });
                 }
               }}
             >

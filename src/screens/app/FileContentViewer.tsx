@@ -56,7 +56,7 @@ interface ContentData {
 const FileContentViewer: React.FC = () => {
   const route = useRoute<FileContentViewerRouteProp>();
   const navigation = useNavigation<FileContentViewerNavigationProp>();
-  const { fileId, changeId, title, version } = route.params;
+  const { fileId, changeId, title, version, versionLabel } = route.params;
 
   const [content, setContent] = useState<ContentData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -282,7 +282,9 @@ const FileContentViewer: React.FC = () => {
             <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{title}</Text>
-          {version && <Text style={styles.versionBadge}>v{version}</Text>}
+          {version && (
+            <Text style={styles.versionBadge}>v{versionLabel || formatVersionDisplay(version)}</Text>
+          )}
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -306,7 +308,9 @@ const FileContentViewer: React.FC = () => {
             {title}
           </Text>
           {version && (
-            <Text style={styles.versionBadge}>Versión {version}</Text>
+            <Text style={styles.versionBadge}>
+              Versión {versionLabel || formatVersionDisplay(version)}
+            </Text>
           )}
         </View>
       </View>
@@ -321,6 +325,11 @@ const FileContentViewer: React.FC = () => {
       </View>
     </SafeAreaView>
   );
+};
+
+const formatVersionDisplay = (v?: number): string => {
+  if (v === undefined || v === null) return "";
+  return `1.${v}`;
 };
 
 const styles = StyleSheet.create({
