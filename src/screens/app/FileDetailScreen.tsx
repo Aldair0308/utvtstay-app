@@ -28,7 +28,7 @@ type FileDetailRouteProp = RouteProp<AppStackParamList, "FileDetail">;
 const FileDetailScreen: React.FC = () => {
   const navigation = useNavigation<FileDetailNavigationProp>();
   const route = useRoute<FileDetailRouteProp>();
-  const { fileId } = route.params;
+  const { fileId, isCompleted: isCompletedParam, latestChangeId: latestChangeIdParam, latestVersion: latestVersionParam } = route.params;
   const { smartFormatDate } = useDateFormatter();
   const { formatFileSize } = useFileFormatter();
 
@@ -36,6 +36,8 @@ const FileDetailScreen: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [fileContent, setFileContent] = useState<string>("");
   const [currentContent, setCurrentContent] = useState<string>("");
+  const [lastChangeId, setLastChangeId] = useState<string | undefined>(latestChangeIdParam);
+  const [lastVersion, setLastVersion] = useState<number | undefined>(latestVersionParam);
 
   useEffect(() => {
     loadFileDetail();
@@ -71,6 +73,8 @@ const FileDetailScreen: React.FC = () => {
 
             // Encontrar la versión actual (la primera después del ordenamiento)
             const currentVersion = sortedHistory[0];
+            setLastVersion(currentVersion.version);
+            setLastChangeId(currentVersion.version === 1 ? undefined : currentVersion.id);
 
             // Usar la misma lógica que FileContentViewer para obtener el contenido
             if (currentVersion.version === 1) {
@@ -214,14 +218,8 @@ const FileDetailScreen: React.FC = () => {
  
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case "active":
-        return theme.colors.success;
-      case "inactive":
-        return theme.colors.textTertiary;
-      default:
-        return theme.colors.success;
-    }
+    if (status === "completed") return theme.colors.info; // azul para completados
+    return theme.colors.success; // verde para no completados
   };
 
   const getStatusText = (status: string) => {
@@ -230,6 +228,8 @@ const FileDetailScreen: React.FC = () => {
         return "Activo";
       case "inactive":
         return "Inactivo";
+      case "completed":
+        return "Completado";
       default:
         return "Activo";
     }
@@ -338,20 +338,52 @@ const FileDetailScreen: React.FC = () => {
       <View style={styles.actionsSection}>
         <Text style={styles.sectionTitle}>Acciones</Text>
 
-        <TouchableOpacity style={styles.actionButton} onPress={handleEdit}>
-          <Text style={styles.actionIcon}>✏️</Text>
-          <Text style={styles.actionText}>Editar Archivo</Text>
-          <Text style={styles.actionChevron}>›</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={handleViewHistory}
-        >
-          <Text style={styles.actionIcon}>📋</Text>
-          <Text style={styles.actionText}>Ver Historial</Text>
-          <Text style={styles.actionChevron}>›</Text>
-        </TouchableOpacity>
+        {((isCompletedParam ?? false) || (file?.completed ?? false) || (file?.status === "completed")) ? (
+          <>
+            <View style={styles.completedInfo}>
+              <Text style={styles.completedTitle}>Este archivo fue completado</Text>
+              <Text style={styles.completedSubtitle}>Puedes observar el contenido del último cambio.</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => {
+                if (lastVersion === 1 || !lastChangeId) {
+                  navigation.navigate("FileContentViewer", { fileId: file?.id, title: file?.name || "Archivo", version: lastVersion });
+                } else {
+                  navigation.navigate("FileContentViewer", { changeId: lastChangeId as string, title: file?.name || "Archivo", version: lastVersion });
+                }
+              }}
+            >
+              <Text style={styles.actionIcon}>👁️</Text>
+              <Text style={styles.actionText}>Ver último cambio</Text>
+              <Text style={styles.actionChevron}>›</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={handleViewHistory}
+            >
+              <Text style={styles.actionIcon}>📋</Text>
+              <Text style={styles.actionText}>Ver Historial</Text>
+              <Text style={styles.actionChevron}>›</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <TouchableOpacity style={styles.actionButton} onPress={handleEdit}>
+              <Text style={styles.actionIcon}>✏️</Text>
+              <Text style={styles.actionText}>Editar Archivo</Text>
+              <Text style={styles.actionChevron}>›</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={handleViewHistory}
+            >
+              <Text style={styles.actionIcon}>📋</Text>
+              <Text style={styles.actionText}>Ver Historial</Text>
+              <Text style={styles.actionChevron}>›</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
     </ScrollView>
   );
@@ -412,6 +444,18 @@ const styles = StyleSheet.create({
     marginTop: 0,
     ...theme.components.card,
     marginBottom: theme.spacing.lg,
+  },
+  completedInfo: {
+    paddingVertical: theme.spacing.sm,
+  },
+  completedTitle: {
+    ...theme.typography.styles.body,
+    fontWeight: "600",
+    marginBottom: theme.spacing.xs,
+  },
+  completedSubtitle: {
+    ...theme.typography.styles.bodySmall,
+    color: theme.colors.textSecondary,
   },
   sectionTitle: {
     ...theme.typography.styles.h4,

@@ -25,7 +25,7 @@ export type AuthStackParamList = {
 export type AppStackParamList = {
   Dashboard: undefined;
   Files: undefined;
-  FileDetail: { fileId: string };
+  FileDetail: { fileId: string; isCompleted?: boolean; latestChangeId?: string; latestVersion?: number };
   FileHistory: { fileId: string };
   FileEdit: { fileId: string; initialContent?: string };
   FileContentViewer: {

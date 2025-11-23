@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -9,28 +9,29 @@ import {
   TextInput,
   Image,
   ImageSourcePropType,
-} from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { AppStackParamList, File } from '../../interfaces';
-import { filesService } from '../../services/files';
-import { theme } from '../../theme';
-import LoadingScreen from '../../components/common/LoadingScreen';
-import CustomAlert from '../../components/common/CustomAlert';
-import useAlert from '../../hooks/useAlert';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
- 
+} from "react-native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { StackNavigationProp } from "@react-navigation/stack";
+import { AppStackParamList, File } from "../../interfaces";
+import { filesService } from "../../services/files";
+import { theme } from "../../theme";
+import LoadingScreen from "../../components/common/LoadingScreen";
+import CustomAlert from "../../components/common/CustomAlert";
+import useAlert from "../../hooks/useAlert";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
-type FilesNavigationProp = StackNavigationProp<AppStackParamList, 'Files'>;
+type FilesNavigationProp = StackNavigationProp<AppStackParamList, "Files">;
 
 const FilesScreen: React.FC = () => {
   const navigation = useNavigation<FilesNavigationProp>();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [filteredFiles, setFilteredFiles] = useState<File[]>([]);
-  const [selectedFilter, setSelectedFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [selectedFilter, setSelectedFilter] = useState<
+    "all" | "active" | "completed"
+  >("all");
   const { alertState, hideAlert, showError } = useAlert();
 
   const loadFiles = async () => {
@@ -42,8 +43,8 @@ const FilesScreen: React.FC = () => {
         setRefreshing(false);
       }
     } catch (error) {
-      console.error('Error loading files:', error);
-      showError('No se pudieron cargar los archivos');
+      console.error("Error loading files:", error);
+      showError("No se pudieron cargar los archivos");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -64,15 +65,25 @@ const FilesScreen: React.FC = () => {
     let filtered = files;
 
     // Filtrar por estado
-    if (selectedFilter !== 'all') {
-      filtered = filtered.filter(file => file.status === selectedFilter);
+    if (selectedFilter !== "all") {
+      if (selectedFilter === "completed") {
+        filtered = filtered.filter(
+          (file) => file.status === "completed" || file.completed === true
+        );
+      } else if (selectedFilter === "active") {
+        filtered = filtered.filter(
+          (file) => file.status !== "completed" && file.completed !== true
+        );
+      }
     }
 
     // Filtrar por búsqueda
     if (searchQuery.trim()) {
-      filtered = filtered.filter(file =>
-        file.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (file.description && file.description.toLowerCase().includes(searchQuery.toLowerCase()))
+      filtered = filtered.filter(
+        (file) =>
+          file.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (file.description &&
+            file.description.toLowerCase().includes(searchQuery.toLowerCase()))
       );
     }
 
@@ -84,8 +95,31 @@ const FilesScreen: React.FC = () => {
     loadFiles();
   };
 
-  const handleFilePress = (file: File) => {
-    navigation.navigate('FileDetail', { fileId: file.id });
+  const handleFilePress = async (file: File) => {
+    try {
+      const fileData = await filesService.getFileById(file.id);
+      const history = await filesService.getFileHistory(file.id);
+      const isCompleted = !!(
+        fileData.completed || fileData.status === "completed"
+      );
+      let latestChangeId: string | undefined = undefined;
+      let latestVersion: number | undefined = undefined;
+      if (history && history.length > 0) {
+        const sorted = [...history].sort((a, b) => b.version - a.version);
+        const currentV = sorted[0];
+        latestVersion = currentV.version;
+        latestChangeId =
+          currentV.version === 1 ? undefined : currentV.id.toString();
+      }
+      navigation.navigate("FileDetail", {
+        fileId: file.id,
+        isCompleted,
+        latestChangeId,
+        latestVersion,
+      });
+    } catch {
+      navigation.navigate("FileDetail", { fileId: file.id });
+    }
   };
 
   interface FileIconInfo {
@@ -95,61 +129,76 @@ const FilesScreen: React.FC = () => {
   }
 
   const getFileIconInfo = (file: File): FileIconInfo => {
-    const name = (file.name || '').toLowerCase();
-    const mime = (file.mimeType || '').toLowerCase();
+    const name = (file.name || "").toLowerCase();
+    const mime = (file.mimeType || "").toLowerCase();
 
     if (
-      name.endsWith('.doc') ||
-      name.endsWith('.docx') ||
-      mime.includes('msword') ||
-      mime.includes('wordprocessingml')
+      name.endsWith(".doc") ||
+      name.endsWith(".docx") ||
+      mime.includes("msword") ||
+      mime.includes("wordprocessingml")
     ) {
-      return { imageSource: require('../../../assets/img/Word.png') };
+      return { imageSource: require("../../../assets/img/Word.png") };
     }
 
     if (
-      name.endsWith('.xls') ||
-      name.endsWith('.xlsx') ||
-      mime.includes('excel') ||
-      mime.includes('spreadsheetml')
+      name.endsWith(".xls") ||
+      name.endsWith(".xlsx") ||
+      mime.includes("excel") ||
+      mime.includes("spreadsheetml")
     ) {
-      return { imageSource: require('../../../assets/img/Excel.png') };
+      return { imageSource: require("../../../assets/img/Excel.png") };
     }
 
-    if (name.endsWith('.html') || name.endsWith('.htm') || mime.includes('html')) {
-      return { imageSource: require('../../../assets/img/html.png') };
+    if (
+      name.endsWith(".html") ||
+      name.endsWith(".htm") ||
+      mime.includes("html")
+    ) {
+      return { imageSource: require("../../../assets/img/html.png") };
     }
 
-    if (mime.includes('pdf')) return { name: 'file-pdf-box', color: '#D32F2F' };
-    if (mime.includes('image')) return { name: 'file-image-outline', color: theme.colors.textSecondary };
-    if (mime.includes('video')) return { name: 'file-video-outline', color: theme.colors.textSecondary };
-    if (mime.includes('audio')) return { name: 'file-music-outline', color: theme.colors.textSecondary };
-    if (mime.includes('text')) return { name: 'file-document-outline', color: theme.colors.textSecondary };
-    return { name: 'file-outline', color: theme.colors.textSecondary };
+    if (mime.includes("pdf")) return { name: "file-pdf-box", color: "#D32F2F" };
+    if (mime.includes("image"))
+      return { name: "file-image-outline", color: theme.colors.textSecondary };
+    if (mime.includes("video"))
+      return { name: "file-video-outline", color: theme.colors.textSecondary };
+    if (mime.includes("audio"))
+      return { name: "file-music-outline", color: theme.colors.textSecondary };
+    if (mime.includes("text"))
+      return {
+        name: "file-document-outline",
+        color: theme.colors.textSecondary,
+      };
+    return { name: "file-outline", color: theme.colors.textSecondary };
   };
 
-  const FileTypeIcon: React.FC<{ imageSource?: ImageSourcePropType; iconName?: string; color?: string }> = ({ imageSource, iconName, color }) => {
+  const FileTypeIcon: React.FC<{
+    imageSource?: ImageSourcePropType;
+    iconName?: string;
+    color?: string;
+  }> = ({ imageSource, iconName, color }) => {
     if (!imageSource) {
-      return <MaterialCommunityIcons name={(iconName as any) || ('file-outline' as any)} size={24} color={color || theme.colors.textSecondary} />;
+      return (
+        <MaterialCommunityIcons
+          name={(iconName as any) || ("file-outline" as any)}
+          size={24}
+          color={color || theme.colors.textSecondary}
+        />
+      );
     }
     return (
       <Image
         source={imageSource}
         style={styles.fileIconImage}
-        resizeMode={'contain'}
+        resizeMode={"contain"}
       />
     );
   };
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return theme.colors.success;
-      case 'inactive':
-        return theme.colors.textTertiary;
-      default:
-        return theme.colors.textSecondary;
-    }
+    if (status === "completed") return theme.colors.info; // azul para completados
+    return theme.colors.success; // verde para no completados
   };
 
   const renderFileItem = ({ item }: { item: File }) => {
@@ -160,7 +209,11 @@ const FilesScreen: React.FC = () => {
         onPress={() => handleFilePress(item)}
       >
         <View style={styles.fileIcon}>
-          <FileTypeIcon imageSource={icon.imageSource} iconName={icon.name as any} color={icon.color} />
+          <FileTypeIcon
+            imageSource={icon.imageSource}
+            iconName={icon.name as any}
+            color={icon.color}
+          />
         </View>
         <View style={styles.fileInfo}>
           <Text style={styles.fileName} numberOfLines={1}>
@@ -179,30 +232,42 @@ const FilesScreen: React.FC = () => {
               {(item.size / 1024).toFixed(1)} KB
             </Text>
           </View>
+          {item.status === "completed" && (
+            <View style={styles.completedBadge}>
+              <Text style={styles.completedBadgeText}>Completado</Text>
+            </View>
+          )}
         </View>
         <View style={styles.fileActions}>
-          <View style={[
-            styles.statusIndicator,
-            { backgroundColor: getStatusColor(item.status) }
-          ]} />
+          <View
+            style={[
+              styles.statusIndicator,
+              { backgroundColor: getStatusColor(item.status) },
+            ]}
+          />
           <Text style={styles.chevron}>›</Text>
         </View>
       </TouchableOpacity>
     );
   };
 
-  const renderFilterButton = (filter: 'all' | 'active' | 'inactive', label: string) => (
+  const renderFilterButton = (
+    filter: "all" | "active" | "completed",
+    label: string
+  ) => (
     <TouchableOpacity
       style={[
         styles.filterButton,
-        selectedFilter === filter && styles.filterButtonActive
+        selectedFilter === filter && styles.filterButtonActive,
       ]}
       onPress={() => setSelectedFilter(filter)}
     >
-      <Text style={[
-        styles.filterButtonText,
-        selectedFilter === filter && styles.filterButtonTextActive
-      ]}>
+      <Text
+        style={[
+          styles.filterButtonText,
+          selectedFilter === filter && styles.filterButtonTextActive,
+        ]}
+      >
         {label}
       </Text>
     </TouchableOpacity>
@@ -227,9 +292,9 @@ const FilesScreen: React.FC = () => {
 
       {/* Filters */}
       <View style={styles.filtersContainer}>
-        {renderFilterButton('all', 'Todos')}
-        {renderFilterButton('active', 'Activos')}
-        {renderFilterButton('inactive', 'Inactivos')}
+        {renderFilterButton("all", "Todos")}
+        {renderFilterButton("active", "Activos")}
+        {renderFilterButton("completed", "Completados")}
       </View>
 
       {/* Files List */}
@@ -246,9 +311,9 @@ const FilesScreen: React.FC = () => {
             <Text style={styles.emptyIcon}>📁</Text>
             <Text style={styles.emptyTitle}>No hay archivos</Text>
             <Text style={styles.emptyDescription}>
-              {searchQuery || selectedFilter !== 'all'
-                ? 'No se encontraron archivos con los filtros aplicados'
-                : 'Aún no tienes archivos en tu cuenta'}
+              {searchQuery || selectedFilter !== "all"
+                ? "No se encontraron archivos con los filtros aplicados"
+                : "Aún no tienes archivos en tu cuenta"}
             </Text>
           </View>
         }
@@ -259,8 +324,10 @@ const FilesScreen: React.FC = () => {
       {filteredFiles.length > 0 && (
         <View style={styles.resultsContainer}>
           <Text style={styles.resultsText}>
-            {filteredFiles.length} archivo{filteredFiles.length !== 1 ? 's' : ''}
-            {searchQuery && ` encontrado${filteredFiles.length !== 1 ? 's' : ''}`}
+            {filteredFiles.length} archivo
+            {filteredFiles.length !== 1 ? "s" : ""}
+            {searchQuery &&
+              ` encontrado${filteredFiles.length !== 1 ? "s" : ""}`}
           </Text>
         </View>
       )}
@@ -292,7 +359,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.backgroundSecondary,
   },
   filtersContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     paddingHorizontal: theme.spacing.screenPadding,
     paddingBottom: theme.spacing.md,
     backgroundColor: theme.colors.background,
@@ -313,7 +380,7 @@ const styles = StyleSheet.create({
   filterButtonText: {
     ...theme.typography.styles.bodySmall,
     color: theme.colors.textSecondary,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   filterButtonTextActive: {
     color: theme.colors.textLight,
@@ -323,8 +390,8 @@ const styles = StyleSheet.create({
     paddingTop: theme.spacing.md,
   },
   fileItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     ...theme.components.card,
     marginBottom: theme.spacing.md,
     paddingVertical: theme.spacing.md,
@@ -334,21 +401,21 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: theme.dimensions.borderRadius.md,
     backgroundColor: theme.colors.backgroundTertiary,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: theme.spacing.md,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   fileIconImage: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   fileInfo: {
     flex: 1,
   },
   fileName: {
     ...theme.typography.styles.body,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: theme.spacing.xs,
   },
   fileDescription: {
@@ -357,8 +424,21 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.xs,
   },
   fileMetadata: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  completedBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.dimensions.borderRadius.sm,
+    marginTop: theme.spacing.xs,
+  },
+  completedBadgeText: {
+    ...theme.typography.styles.caption,
+    color: theme.colors.textLight,
+    fontWeight: "600",
   },
   fileDate: {
     ...theme.typography.styles.caption,
@@ -367,7 +447,7 @@ const styles = StyleSheet.create({
     ...theme.typography.styles.caption,
   },
   fileActions: {
-    alignItems: 'center',
+    alignItems: "center",
     marginLeft: theme.spacing.md,
   },
   statusIndicator: {
@@ -381,8 +461,8 @@ const styles = StyleSheet.create({
     color: theme.colors.textTertiary,
   },
   emptyContainer: {
-    alignItems: 'center',
-    paddingVertical: theme.spacing['3xl'],
+    alignItems: "center",
+    paddingVertical: theme.spacing["3xl"],
   },
   emptyIcon: {
     fontSize: 64,
@@ -395,7 +475,7 @@ const styles = StyleSheet.create({
   emptyDescription: {
     ...theme.typography.styles.bodySmall,
     color: theme.colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     paddingHorizontal: theme.spacing.lg,
   },
   resultsContainer: {
@@ -406,7 +486,7 @@ const styles = StyleSheet.create({
   },
   resultsText: {
     ...theme.typography.styles.caption,
-    textAlign: 'center',
+    textAlign: "center",
   },
 });
 

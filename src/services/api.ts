@@ -3,8 +3,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ERROR_MESSAGES } from "../const/errors";
 
 // Cambiar por la URL real de tu API
-const API_BASE_URL = "https://estadias-production.up.railway.app/api";
-// const API_BASE_URL = "http://192.168.100.142:8000/api";
+// const API_BASE_URL = "https://estadias-production.up.railway.app/api";
+const API_BASE_URL = "http://192.168.100.142:8000/api";
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,

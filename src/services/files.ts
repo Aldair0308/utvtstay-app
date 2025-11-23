@@ -34,27 +34,37 @@ export const filesService = {
 
       if (response.data.success && response.data.data) {
         // Mapear la respuesta de la API al formato esperado por la interfaz
-        const apiFiles = response.data.data.files.map((file: any) => ({
-          id: file.id?.toString() || file.id,
-          name: file.name || "",
-          content: file.content || "",
-          description: file.description || file.tutor_observations || "",
-          version: file.version || 1,
-          status: file.status || "pending",
-          createdAt:
-            file.created_at || file.createdAt || new Date().toISOString(),
-          updatedAt:
-            file.updated_at || file.updatedAt || new Date().toISOString(),
-          studentId: file.student_id || file.studentId || 0,
-          mimeType:
-            file.mime_type ||
-            file.mimeType ||
-            file.file_type ||
-            "application/octet-stream",
-          fileType: file.file_type || file.fileType || "unknown",
-          size: file.size || 0,
-          tutorObservations: file.tutor_observations || file.tutorObservations,
-        }));
+        const apiFiles = response.data.data.files.map((file: any) => {
+          const rawStatus = (file.status || "").toString().toLowerCase();
+          const isCompleted = !!(
+            file.is_completed ||
+            file.completed ||
+            rawStatus === "completed" ||
+            rawStatus === "approved"
+          );
+          return {
+            id: file.id?.toString() || file.id,
+            name: file.name || "",
+            content: file.content || "",
+            description: file.description || file.tutor_observations || "",
+            version: file.version || 1,
+            status: isCompleted ? "completed" : (file.status || "pending"),
+            createdAt:
+              file.created_at || file.createdAt || new Date().toISOString(),
+            updatedAt:
+              file.updated_at || file.updatedAt || new Date().toISOString(),
+            studentId: file.student_id || file.studentId || 0,
+            mimeType:
+              file.mime_type ||
+              file.mimeType ||
+              file.file_type ||
+              "application/octet-stream",
+            fileType: file.file_type || file.fileType || "unknown",
+            size: file.size || 0,
+            tutorObservations: file.tutor_observations || file.tutorObservations,
+            completed: isCompleted,
+          };
+        });
 
         return {
           files: apiFiles,
@@ -86,15 +96,20 @@ export const filesService = {
         response.data.data.file
       ) {
         const file = response.data.data.file;
-
-        // Mapear la respuesta de la API al formato esperado por la interfaz
+        const rawStatus = (file.status || "").toString().toLowerCase();
+        const isCompleted = !!(
+          file.is_completed ||
+          file.completed ||
+          rawStatus === "completed" ||
+          rawStatus === "approved"
+        );
         return {
           id: file.id?.toString() || file.id,
           name: file.name || "",
           content: file.content || "",
           description: file.description || file.tutor_observations || "",
           version: file.version || 1,
-          status: file.status || "pending",
+          status: isCompleted ? "completed" : (file.status || "pending"),
           createdAt:
             file.created_at || file.createdAt || new Date().toISOString(),
           updatedAt:
@@ -108,6 +123,7 @@ export const filesService = {
           fileType: file.file_type || file.fileType || "unknown",
           size: file.size || 0,
           tutorObservations: file.tutor_observations || file.tutorObservations,
+          completed: isCompleted,
         };
       }
 
@@ -132,15 +148,20 @@ export const filesService = {
 
       if (response.data.success && response.data.data) {
         const file = response.data.data;
-
-        // Mapear la respuesta de la API al formato esperado por la interfaz
+        const rawStatus = (file.status || "").toString().toLowerCase();
+        const isCompleted = !!(
+          file.is_completed ||
+          file.completed ||
+          rawStatus === "completed" ||
+          rawStatus === "approved"
+        );
         return {
           id: file.id?.toString() || file.id,
           name: file.name || "",
           content: file.content || "",
           description: file.description || file.tutor_observations || "",
           version: file.version || 1,
-          status: file.status || "pending",
+          status: isCompleted ? "completed" : (file.status || "pending"),
           createdAt:
             file.created_at || file.createdAt || new Date().toISOString(),
           updatedAt:
@@ -154,6 +175,7 @@ export const filesService = {
           fileType: file.file_type || file.fileType || "unknown",
           size: file.size || 0,
           tutorObservations: file.tutor_observations || file.tutorObservations,
+          completed: isCompleted,
         };
       }
 
@@ -176,15 +198,20 @@ export const filesService = {
 
       if (response.data.success && response.data.data) {
         const file = response.data.data;
-
-        // Mapear la respuesta de la API al formato esperado por la interfaz
+        const rawStatus = (file.status || "").toString().toLowerCase();
+        const isCompleted = !!(
+          file.is_completed ||
+          file.completed ||
+          rawStatus === "completed" ||
+          rawStatus === "approved"
+        );
         return {
           id: file.id?.toString() || file.id,
           name: file.name || "",
           content: file.content || "",
           description: file.description || file.tutor_observations || "",
           version: file.version || 1,
-          status: file.status || "pending",
+          status: isCompleted ? "completed" : (file.status || "pending"),
           createdAt:
             file.created_at || file.createdAt || new Date().toISOString(),
           updatedAt:
@@ -198,6 +225,7 @@ export const filesService = {
           fileType: file.file_type || file.fileType || "unknown",
           size: file.size || 0,
           tutorObservations: file.tutor_observations || file.tutorObservations,
+          completed: isCompleted,
         };
       }
 
@@ -253,15 +281,20 @@ export const filesService = {
 
       if (response.data.success && response.data.data) {
         const file = response.data.data;
-
-        // Mapear la respuesta de la API al formato esperado por la interfaz
+        const rawStatus = (file.status || "").toString().toLowerCase();
+        const isCompleted = !!(
+          file.is_completed ||
+          file.completed ||
+          rawStatus === "completed" ||
+          rawStatus === "approved"
+        );
         return {
           id: file.id?.toString() || file.id,
           name: file.name || "",
           content: file.content || "",
           description: file.description || file.tutor_observations || "",
           version: file.version || 1,
-          status: file.status || "pending",
+          status: isCompleted ? "completed" : (file.status || "pending"),
           createdAt:
             file.created_at || file.createdAt || new Date().toISOString(),
           updatedAt:
@@ -275,6 +308,7 @@ export const filesService = {
           fileType: file.file_type || file.fileType || "unknown",
           size: file.size || 0,
           tutorObservations: file.tutor_observations || file.tutorObservations,
+          completed: isCompleted,
         };
       }
 
@@ -298,15 +332,20 @@ export const filesService = {
 
       if (response.data.success && response.data.data) {
         const file = response.data.data;
-
-        // Mapear la respuesta de la API al formato esperado por la interfaz
+        const rawStatus = (file.status || "").toString().toLowerCase();
+        const isCompleted = !!(
+          file.is_completed ||
+          file.completed ||
+          rawStatus === "completed" ||
+          rawStatus === "approved"
+        );
         return {
           id: file.id?.toString() || file.id,
           name: file.name || "",
           content: file.content || "",
           description: file.description || file.tutor_observations || "",
           version: file.version || 1,
-          status: file.status || "pending",
+          status: isCompleted ? "completed" : (file.status || "pending"),
           createdAt:
             file.created_at || file.createdAt || new Date().toISOString(),
           updatedAt:
@@ -320,6 +359,7 @@ export const filesService = {
           fileType: file.file_type || file.fileType || "unknown",
           size: file.size || 0,
           tutorObservations: file.tutor_observations || file.tutorObservations,
+          completed: isCompleted,
         };
       }
 
@@ -589,15 +629,20 @@ export const filesService = {
 
       if (response.data.success && response.data.data) {
         const file = response.data.data;
-
-        // Mapear la respuesta de la API al formato esperado por la interfaz
+        const rawStatus = (file.status || "").toString().toLowerCase();
+        const isCompleted = !!(
+          file.is_completed ||
+          file.completed ||
+          rawStatus === "completed" ||
+          rawStatus === "approved"
+        );
         return {
           id: file.id?.toString() || file.id,
           name: file.name || "",
           content: file.content || "",
           description: file.description || file.tutor_observations || "",
           version: file.version || 1,
-          status: file.status || "pending",
+          status: isCompleted ? "completed" : (file.status || "pending"),
           createdAt:
             file.created_at || file.createdAt || new Date().toISOString(),
           updatedAt:
@@ -611,6 +656,7 @@ export const filesService = {
           fileType: file.file_type || file.fileType || "unknown",
           size: file.size || 0,
           tutorObservations: file.tutor_observations || file.tutorObservations,
+          completed: isCompleted,
         };
       }
 

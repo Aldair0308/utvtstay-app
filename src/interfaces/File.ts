@@ -12,6 +12,7 @@ export interface File {
   mimeType: string;
   fileType: string;
   size: number;
+  completed?: boolean;
 }
 
 export interface FileHistory {
