@@ -60,6 +60,8 @@ export const authService = {
         current_password: currentPassword,
         password: newPassword,
         password_confirmation: confirmPassword,
+        new_password: newPassword,
+        new_password_confirmation: confirmPassword,
       });
       
       if (!response.data.success) {

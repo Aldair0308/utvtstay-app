@@ -7,8 +7,9 @@ import {
   StyleSheet,
   Alert,
   RefreshControl,
+  BackHandler,
 } from "react-native";
-import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import { useNavigation, useRoute, RouteProp, useFocusEffect } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { AppStackParamList, FileVersion } from "../../interfaces";
 import { filesService } from "../../services/files";
@@ -40,6 +41,19 @@ const FileHistoryScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [history, setHistory] = useState<FileHistoryItem[]>([]);
   const [displayFileName, setDisplayFileName] = useState<string>("");
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const subscription = BackHandler.addEventListener(
+        "hardwareBackPress",
+        () => {
+          navigation.replace("Files");
+          return true;
+        }
+      );
+      return () => subscription.remove();
+    }, [navigation])
+  );
 
   useEffect(() => {
     const resolveHeader = async () => {

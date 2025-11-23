@@ -18,6 +18,7 @@ import { WebView } from "react-native-webview";
 import ExcelEditor, {
   ExcelEditorHandle,
 } from "../../components/FileEditScreenExcel";
+import WordDocumentEditor from "../../components/WordDocumentEditor";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -725,13 +726,12 @@ const FileEditScreen: React.FC = () => {
             (editorResponse as any)?.data?.type ||
             ""
         ).toLowerCase();
-        const styleCandidate:
-          | string
-          | null = typeof (editorResponse as any)?.content?.data === "string"
-          ? (editorResponse as any).content.data
-          : typeof (editorResponse as any)?.data?.content === "string"
-          ? (editorResponse as any).data.content
-          : null;
+        const styleCandidate: string | null =
+          typeof (editorResponse as any)?.content?.data === "string"
+            ? (editorResponse as any).content.data
+            : typeof (editorResponse as any)?.data?.content === "string"
+            ? (editorResponse as any).data.content
+            : null;
 
         const isCssPayload =
           !!styleCandidate &&
@@ -1446,8 +1446,6 @@ const FileEditScreen: React.FC = () => {
     }, 1000);
   };
 
-  
-
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -1566,97 +1564,66 @@ const FileEditScreen: React.FC = () => {
           )}
         </View>
       ) : (
-      <ScrollView
-        style={styles.scrollContainer}
-        contentContainerStyle={[
-          styles.scrollContent,
-          // Para Excel, aseguremos que el contenido ocupe al menos el alto de la pantalla
-          null,
-        ]}
-        keyboardShouldPersistTaps="always"
-        keyboardDismissMode="none"
-        showsVerticalScrollIndicator={false}
-      >
-        
-
-        {/* File Info */}
-        {/* <View style={styles.fileInfo}>
+        <View style={styles.flexBody}>
+          {/* File Info */}
+          {/* <View style={styles.fileInfo}>
           <Text style={styles.fileInfoText}>Tipo: {editorData.file.type}</Text>
           <Text style={styles.fileInfoText}>
             Tamaño: {(editorData.file.size / 1024).toFixed(1)} KB
           </Text>
         </View> */}
 
-        {/* Editor HTML */}
-          <TouchableOpacity
-            style={styles.webViewContainer}
-            activeOpacity={1}
-            onPress={handleContainerPress}
-          >
-            <WebView
-              ref={webViewRef}
-              key={"stable-editor-webview"}
-              source={{ html: editableHtml }}
-              style={styles.webView}
-              onMessage={onWebViewMessage}
-              scalesPageToFit={false}
-              startInLoadingState={true}
-              keyboardDisplayRequiresUserAction={false}
-              hideKeyboardAccessoryView={false}
-              allowsInlineMediaPlayback={true}
-              mediaPlaybackRequiresUserAction={false}
-              scrollEnabled={true}
-              nestedScrollEnabled={true}
-              renderLoading={() => (
-                <View style={styles.webViewLoading}>
-                  <ActivityIndicator
-                    size="large"
-                    color={theme.colors.primary}
-                  />
-                  <Text style={styles.loadingText}>Cargando editor...</Text>
-                </View>
-              )}
+          {/* Editor HTML */}
+          <View style={styles.webViewContainer}>
+            <WordDocumentEditor
+              initialContent={htmlContent}
+              initialFormat="html"
+              onContentChange={(content) => {
+                if (content !== htmlContent) {
+                  setHtmlContent(content);
+                  setHasChanges(true);
+                }
+              }}
+              readOnly={false}
             />
-          </TouchableOpacity>
-        
+          </View>
 
-        {/* Status Message (web-friendly) */}
-        {saveStatusMessage && (
-          <View
-            style={[
-              styles.statusMessageContainer,
-              saveStatusMessage.type === "error" && {
-                borderLeftColor: theme.colors.error,
-              },
-              saveStatusMessage.type === "success" && {
-                borderLeftColor: theme.colors.success,
-              },
-              saveStatusMessage.type === "info" && {
-                borderLeftColor: theme.colors.info,
-              },
-            ]}
-          >
-            <Text
+          {/* Status Message (web-friendly) */}
+          {saveStatusMessage && (
+            <View
               style={[
-                styles.statusMessageText,
+                styles.statusMessageContainer,
                 saveStatusMessage.type === "error" && {
-                  color: theme.colors.error,
+                  borderLeftColor: theme.colors.error,
                 },
                 saveStatusMessage.type === "success" && {
-                  color: theme.colors.success,
+                  borderLeftColor: theme.colors.success,
                 },
                 saveStatusMessage.type === "info" && {
-                  color: theme.colors.textSecondary,
+                  borderLeftColor: theme.colors.info,
                 },
               ]}
-              numberOfLines={3}
             >
-              {saveStatusMessage.text}
-            </Text>
-          </View>
-        )}
-
-      </ScrollView>
+              <Text
+                style={[
+                  styles.statusMessageText,
+                  saveStatusMessage.type === "error" && {
+                    color: theme.colors.error,
+                  },
+                  saveStatusMessage.type === "success" && {
+                    color: theme.colors.success,
+                  },
+                  saveStatusMessage.type === "info" && {
+                    color: theme.colors.textSecondary,
+                  },
+                ]}
+                numberOfLines={3}
+              >
+                {saveStatusMessage.text}
+              </Text>
+            </View>
+          )}
+        </View>
       )}
       {/* Action Buttons */}
       <View style={styles.actionButtons}>
