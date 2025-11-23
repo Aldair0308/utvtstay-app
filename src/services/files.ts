@@ -257,6 +257,7 @@ export const filesService = {
           changes_description: item.description || "Sin descripción",
           created_at: item.created_at || new Date().toISOString(),
           created_by: item.user?.id || item.created_by || 0,
+          is_checked: !!item.is_checked,
         }));
       }
 

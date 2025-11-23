@@ -31,11 +31,11 @@ interface FileHistoryItem {
   id: string;
   version: number;
   createdAt: string;
-  createdBy: string;
   size: number;
   changes: string;
   isCurrentVersion: boolean;
   displayVersionLabel: string;
+  isChecked: boolean;
 }
 
 const FileHistoryScreen: React.FC = () => {
@@ -86,9 +86,15 @@ const FileHistoryScreen: React.FC = () => {
         id: item.id.toString(),
         version: item.version,
         createdAt: item.created_at,
-        createdBy: `Usuario ${item.created_by}`,
         size: item.content ? item.content.length : 0,
-        changes: item.changes_description || "Sin descripción de cambios",
+        changes: (() => {
+          const raw = (item.changes_description || "").toString();
+          const normalized = raw.trim().toLowerCase();
+          const placeholder = "cambio incremental sin descripcion";
+          if (!normalized || normalized === placeholder) return "";
+          return raw;
+        })(),
+        isChecked: !!item.is_checked,
       }));
 
       const ascending = baseHistory.sort((a, b) => {
@@ -129,11 +135,6 @@ const FileHistoryScreen: React.FC = () => {
           text: "Ver Contenido",
           onPress: () => viewVersionContent(item),
         },
-        {
-          text: "Restaurar",
-          onPress: () => restoreVersion(item),
-          style: "destructive",
-        },
       ]
     );
   };
@@ -158,32 +159,6 @@ const FileHistoryScreen: React.FC = () => {
     }
   };
 
-  const restoreVersion = (item: FileHistoryItem) => {
-    Alert.alert(
-      "Confirmar Restauración",
-      `¿Estás seguro que deseas restaurar la versión ${item.displayVersionLabel}? Esto creará una nueva versión con el contenido seleccionado.`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Restaurar",
-          onPress: () => performRestore(item),
-          style: "destructive",
-        },
-      ]
-    );
-  };
-
-  const performRestore = async (item: FileHistoryItem) => {
-    try {
-      await filesService.restoreFileVersion(fileId, item.version.toString());
-      Alert.alert("Éxito", "Versión restaurada correctamente");
-      loadFileHistory(); // Recargar historial
-    } catch (error) {
-      console.error("Error restoring version:", error);
-      Alert.alert("Error", "No se pudo restaurar la versión");
-    }
-  };
-
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return "0 Bytes";
     const k = 1024;
@@ -203,14 +178,12 @@ const FileHistoryScreen: React.FC = () => {
   const formatDate = (dateString: string): string => {
     const date = new Date(dateString);
     const now = new Date();
-    const diffTime = Math.abs(now.getTime() - date.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const diffMs = Math.abs(now.getTime() - date.getTime());
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
 
-    if (diffDays === 1) {
-      return "Hace 1 día";
-    } else if (diffDays < 7) {
-      return `Hace ${diffDays} días`;
-    } else {
+    if (diffDays >= 7) {
       return date.toLocaleDateString("es-ES", {
         year: "numeric",
         month: "short",
@@ -219,6 +192,23 @@ const FileHistoryScreen: React.FC = () => {
         minute: "2-digit",
       });
     }
+
+    if (diffDays >= 1) {
+      return diffDays === 1 ? "Hace 1 día" : `Hace ${diffDays} días`;
+    }
+
+    if (diffHours >= 1) {
+      const h = diffHours;
+      const m = diffMinutes % 60;
+      if (m > 0) return `Hace ${h} y ${m} min`;
+      return `Hace ${h}${h === 1 ? "hr" : "hrs"}`;
+    }
+
+    if (diffMinutes >= 1) {
+      return `Hace ${diffMinutes} min`;
+    }
+
+    return "Hace segundos";
   };
 
   const renderHistoryItem = ({ item }: { item: FileHistoryItem }) => (
@@ -241,6 +231,18 @@ const FileHistoryScreen: React.FC = () => {
             {item.isCurrentVersion && " (Actual)"}
           </Text>
           <Text style={styles.itemDate}>{formatDate(item.createdAt)}</Text>
+          <View
+            style={[
+              styles.checkedBadge,
+              item.isChecked
+                ? styles.checkedBadgeChecked
+                : styles.checkedBadgeUnchecked,
+            ]}
+          >
+            <Text style={styles.checkedBadgeText}>
+              {item.isChecked ? "Revisado ✓" : "Sin revisar"}
+            </Text>
+          </View>
         </View>
 
         <View style={styles.itemMeta}>
@@ -252,10 +254,6 @@ const FileHistoryScreen: React.FC = () => {
           )}
         </View>
       </View>
-
-      <Text style={styles.createdBy}>Por: {item.createdBy}</Text>
-
-      <Text style={styles.changes}>{item.changes}</Text>
 
       <View style={styles.itemActions}>
         <Text style={styles.actionHint}>Toca para ver opciones</Text>
@@ -354,6 +352,24 @@ const styles = StyleSheet.create({
   itemMeta: {
     alignItems: "flex-end",
   },
+  checkedBadge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.dimensions.borderRadius.sm,
+    marginTop: theme.spacing.xs,
+  },
+  checkedBadgeChecked: {
+    backgroundColor: theme.colors.success,
+  },
+  checkedBadgeUnchecked: {
+    backgroundColor: theme.colors.warning,
+  },
+  checkedBadgeText: {
+    ...theme.typography.styles.caption,
+    color: theme.colors.textLight,
+    fontWeight: "600",
+  },
   fileSize: {
     ...theme.typography.styles.bodySmall,
     color: theme.colors.textSecondary,
@@ -369,11 +385,6 @@ const styles = StyleSheet.create({
     ...theme.typography.styles.caption,
     color: theme.colors.textLight,
     fontWeight: "600",
-  },
-  createdBy: {
-    ...theme.typography.styles.bodySmall,
-    color: theme.colors.textSecondary,
-    marginBottom: theme.spacing.sm,
   },
   changes: {
     ...theme.typography.styles.body,

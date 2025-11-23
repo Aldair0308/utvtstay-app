@@ -20,11 +20,13 @@ import LoadingScreen from "../../components/common/LoadingScreen";
 import CustomAlert from "../../components/common/CustomAlert";
 import useAlert from "../../hooks/useAlert";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useDateFormatter } from "../../hooks/useDateFormatter";
 
 type FilesNavigationProp = StackNavigationProp<AppStackParamList, "Files">;
 
 const FilesScreen: React.FC = () => {
   const navigation = useNavigation<FilesNavigationProp>();
+  const { formatMediumDate } = useDateFormatter();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
@@ -248,7 +250,7 @@ const FilesScreen: React.FC = () => {
           )}
           <View style={styles.fileMetadata}>
             <Text style={styles.fileDate}>
-              {new Date(item.updatedAt).toLocaleDateString()}
+              {formatMediumDate(new Date(item.updatedAt))}
             </Text>
             <Text style={styles.fileSize}>
               {(item.size / 1024).toFixed(1)} KB

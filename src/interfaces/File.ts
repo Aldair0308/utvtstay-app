@@ -23,6 +23,7 @@ export interface FileHistory {
   changes_description: string;
   created_at: string;
   created_by: number;
+  is_checked?: boolean;
 }
 
 export interface FileVersion {
