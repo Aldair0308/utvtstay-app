@@ -8,8 +8,14 @@ import {
   Alert,
   Share,
   Image,
+  BackHandler,
 } from "react-native";
-import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import {
+  useNavigation,
+  useRoute,
+  RouteProp,
+  useFocusEffect,
+} from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { AppStackParamList, File } from "../../interfaces";
 import { filesService } from "../../services/files";
@@ -28,7 +34,12 @@ type FileDetailRouteProp = RouteProp<AppStackParamList, "FileDetail">;
 const FileDetailScreen: React.FC = () => {
   const navigation = useNavigation<FileDetailNavigationProp>();
   const route = useRoute<FileDetailRouteProp>();
-  const { fileId, isCompleted: isCompletedParam, latestChangeId: latestChangeIdParam, latestVersion: latestVersionParam } = route.params;
+  const {
+    fileId,
+    isCompleted: isCompletedParam,
+    latestChangeId: latestChangeIdParam,
+    latestVersion: latestVersionParam,
+  } = route.params;
   const { smartFormatDate } = useDateFormatter();
   const { formatFileSize } = useFileFormatter();
 
@@ -36,13 +47,45 @@ const FileDetailScreen: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [fileContent, setFileContent] = useState<string>("");
   const [currentContent, setCurrentContent] = useState<string>("");
-  const [lastChangeId, setLastChangeId] = useState<string | undefined>(latestChangeIdParam);
-  const [lastVersion, setLastVersion] = useState<number | undefined>(latestVersionParam);
-  const [lastVersionLabel, setLastVersionLabel] = useState<string | undefined>(undefined);
+  const [lastChangeId, setLastChangeId] = useState<string | undefined>(
+    latestChangeIdParam
+  );
+  const [lastVersion, setLastVersion] = useState<number | undefined>(
+    latestVersionParam
+  );
+  const [lastVersionLabel, setLastVersionLabel] = useState<string | undefined>(
+    undefined
+  );
 
   useEffect(() => {
     loadFileDetail();
   }, [fileId]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+        navigation.replace("Files");
+        return true;
+      });
+      navigation.setOptions({
+        headerLeft: () => (
+          <TouchableOpacity
+            onPress={() => navigation.replace("Files")}
+            style={{ paddingHorizontal: 12 }}
+          >
+            <MaterialCommunityIcons
+              name="arrow-left"
+              size={24}
+              color={theme.colors.textSecondary}
+            />
+          </TouchableOpacity>
+        ),
+      });
+      return () => {
+        sub.remove();
+      };
+    }, [navigation])
+  );
 
   const loadFileDetail = async () => {
     try {
@@ -74,8 +117,12 @@ const FileDetailScreen: React.FC = () => {
             // Encontrar la versión actual (la primera después del ordenamiento)
             const currentVersion = sortedHistory[0];
             setLastVersion(currentVersion.version);
-            setLastChangeId(currentVersion.version === 1 ? undefined : currentVersion.id);
-            setLastVersionLabel(computeSequentialLabel(sortedHistory.length - 1));
+            setLastChangeId(
+              currentVersion.version === 1 ? undefined : currentVersion.id
+            );
+            setLastVersionLabel(
+              computeSequentialLabel(sortedHistory.length - 1)
+            );
 
             // Usar la misma lógica que FileContentViewer para obtener el contenido
             if (currentVersion.version === 1) {
@@ -224,8 +271,6 @@ const FileDetailScreen: React.FC = () => {
     return { name: "file-outline", color: theme.colors.textSecondary };
   };
 
- 
-
   const getStatusColor = (status: string) => {
     if (status === "completed") return theme.colors.info; // azul para completados
     return theme.colors.success; // verde para no completados
@@ -347,19 +392,35 @@ const FileDetailScreen: React.FC = () => {
       <View style={styles.actionsSection}>
         <Text style={styles.sectionTitle}>Acciones</Text>
 
-        {((isCompletedParam ?? false) || (file?.completed ?? false) || (file?.status === "completed")) ? (
+        {(isCompletedParam ?? false) ||
+        (file?.completed ?? false) ||
+        file?.status === "completed" ? (
           <>
             <View style={styles.completedInfo}>
-              <Text style={styles.completedTitle}>Este archivo fue completado</Text>
-              <Text style={styles.completedSubtitle}>Puedes observar el contenido del último cambio.</Text>
+              <Text style={styles.completedTitle}>
+                Este archivo fue completado
+              </Text>
+              <Text style={styles.completedSubtitle}>
+                Puedes observar el contenido del último cambio.
+              </Text>
             </View>
             <TouchableOpacity
               style={styles.actionButton}
               onPress={() => {
                 if (lastVersion === 1 || !lastChangeId) {
-                  navigation.navigate("FileContentViewer", { fileId: file?.id, title: file?.name || "Archivo", version: lastVersion, versionLabel: lastVersionLabel });
+                  navigation.navigate("FileContentViewer", {
+                    fileId: file?.id,
+                    title: file?.name || "Archivo",
+                    version: lastVersion,
+                    versionLabel: lastVersionLabel,
+                  });
                 } else {
-                  navigation.navigate("FileContentViewer", { changeId: lastChangeId as string, title: file?.name || "Archivo", version: lastVersion, versionLabel: lastVersionLabel });
+                  navigation.navigate("FileContentViewer", {
+                    changeId: lastChangeId as string,
+                    title: file?.name || "Archivo",
+                    version: lastVersion,
+                    versionLabel: lastVersionLabel,
+                  });
                 }
               }}
             >

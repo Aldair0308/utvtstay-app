@@ -9,6 +9,7 @@ import {
   TextInput,
   Image,
   ImageSourcePropType,
+  BackHandler,
 } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
@@ -54,6 +55,20 @@ const FilesScreen: React.FC = () => {
   useFocusEffect(
     useCallback(() => {
       loadFiles();
+      const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+        navigation.replace("Dashboard");
+        return true;
+      });
+      navigation.setOptions({
+        headerLeft: () => (
+          <TouchableOpacity onPress={() => navigation.replace("Dashboard")} style={{ paddingHorizontal: 12 }}>
+            <MaterialCommunityIcons name="arrow-left" size={24} color={theme.colors.textSecondary} />
+          </TouchableOpacity>
+        ),
+      });
+      return () => {
+        sub.remove();
+      };
     }, [])
   );
 
