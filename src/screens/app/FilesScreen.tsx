@@ -61,8 +61,15 @@ const FilesScreen: React.FC = () => {
       });
       navigation.setOptions({
         headerLeft: () => (
-          <TouchableOpacity onPress={() => navigation.replace("Dashboard")} style={{ paddingHorizontal: 12 }}>
-            <MaterialCommunityIcons name="arrow-left" size={24} color={theme.colors.textSecondary} />
+          <TouchableOpacity
+            onPress={() => navigation.replace("Dashboard")}
+            style={{ paddingHorizontal: 12 }}
+          >
+            <MaterialCommunityIcons
+              name="arrow-left"
+              size={24}
+              color={theme.colors.textSecondary}
+            />
           </TouchableOpacity>
         ),
       });

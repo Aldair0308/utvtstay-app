@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Dimensions,
+  Modal,
 } from "react-native";
 import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
@@ -60,6 +61,7 @@ const FileContentViewer: React.FC = () => {
 
   const [content, setContent] = useState<ContentData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [observationsVisible, setObservationsVisible] = useState(false);
 
   useEffect(() => {
     loadContent();
@@ -97,7 +99,7 @@ const FileContentViewer: React.FC = () => {
     // Primer intento: si parece JSON de hoja (contiene "rows"), renderizar como Excel
     try {
       const fcTrim = (fileContent || "").trim();
-      if (fcTrim.startsWith("{") && fcTrim.includes("\"rows\"")) {
+      if (fcTrim.startsWith("{") && fcTrim.includes('"rows"')) {
         const raw = JSON.parse(fcTrim);
         const sheets = Array.isArray(raw?.content)
           ? raw.content
@@ -283,7 +285,9 @@ const FileContentViewer: React.FC = () => {
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{title}</Text>
           {version && (
-            <Text style={styles.versionBadge}>v{versionLabel || formatVersionDisplay(version)}</Text>
+            <Text style={styles.versionBadge}>
+              v{versionLabel || formatVersionDisplay(version)}
+            </Text>
           )}
         </View>
         <View style={styles.loadingContainer}>
@@ -313,16 +317,79 @@ const FileContentViewer: React.FC = () => {
             </Text>
           )}
         </View>
+        {content?.file_change ? (
+          <TouchableOpacity
+            style={styles.observeButton}
+            onPress={() => setObservationsVisible(true)}
+          >
+            <Text style={styles.observeButtonText}>Ver observaciones</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
 
-      <View style={styles.contentWrapper}>
-        {content && (
-          <View style={styles.mimeTypeInfo}>
-            <Text style={styles.mimeTypeText}>Tipo: {content.mimeType}</Text>
+      <View style={styles.contentWrapper}>{renderContent()}</View>
+      <Modal
+        visible={observationsVisible}
+        transparent={true}
+        animationType="slide"
+        statusBarTranslucent={true}
+        onRequestClose={() => setObservationsVisible(false)}
+      >
+        <View style={styles.modalRoot}>
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setObservationsVisible(false)}
+          />
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Ionicons
+                name="chatbubbles-outline"
+                size={20}
+                color={colors.text.primary}
+                style={styles.modalHeaderIcon}
+              />
+              <Text style={styles.modalTitle}>Observaciones del cambio</Text>
+              <TouchableOpacity
+                style={styles.modalCloseIconButton}
+                onPress={() => setObservationsVisible(false)}
+              >
+                <Ionicons
+                  name="close"
+                  size={20}
+                  color={colors.text.secondary}
+                />
+              </TouchableOpacity>
+            </View>
+            {content?.file_change && (
+              <Text style={styles.modalSubtitle}>
+                {content.file_change.change_type || "Cambio"}
+                {content.file_change.created_at
+                  ? ` • ${new Date(
+                      content.file_change.created_at
+                    ).toLocaleString("es-ES")}`
+                  : ""}
+              </Text>
+            )}
+            <ScrollView
+              style={styles.modalScroll}
+              contentContainerStyle={styles.modalScrollContent}
+            >
+              <Text style={styles.modalText}>
+                {content?.file_change?.observations || "Sin observaciones"}
+              </Text>
+            </ScrollView>
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setObservationsVisible(false)}
+              >
+                <Text style={styles.modalCloseText}>Cerrar</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        )}
-        {renderContent()}
-      </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -368,6 +435,19 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     marginTop: 2,
   },
+  observeButton: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    marginLeft: spacing.sm,
+    elevation: 2,
+  },
+  observeButtonText: {
+    fontSize: typography.fontSize.sm,
+    color: "#FFFFFF",
+    fontWeight: typography.fontWeight.medium,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
@@ -382,18 +462,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
-  },
-  mimeTypeInfo: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.background.tertiary,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  mimeTypeText: {
-    fontSize: typography.fontSize.sm,
-    color: colors.text.secondary,
-    fontFamily: "monospace",
   },
   editorScroll: {
     flex: 1,
@@ -449,6 +517,96 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: colors.background.primary,
+  },
+  modalOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(17,24,39,0.65)",
+  },
+  modalRoot: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContainer: {
+    position: "absolute",
+    left: spacing.md,
+    right: spacing.md,
+    top: Dimensions.get("window").height * 0.12,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: "hidden",
+    elevation: 6,
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    maxHeight: Dimensions.get("window").height * 0.7,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.background.secondary,
+  },
+  modalHeaderIcon: {
+    marginRight: spacing.sm,
+  },
+  modalTitle: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.text.primary,
+    flex: 1,
+  },
+  modalCloseIconButton: {
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xs,
+    borderRadius: 9999,
+  },
+  modalSubtitle: {
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+  },
+  modalScroll: {
+    maxHeight: Dimensions.get("window").height * 0.5,
+  },
+  modalScrollContent: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  modalText: {
+    fontSize: typography.fontSize.base,
+    color: colors.text.primary,
+    lineHeight: typography.fontSize.base * 1.5,
+  },
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  modalCloseButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: 8,
+  },
+  modalCloseText: {
+    fontSize: typography.fontSize.base,
+    color: "#FFFFFF",
+    fontWeight: typography.fontWeight.medium,
   },
 });
 
