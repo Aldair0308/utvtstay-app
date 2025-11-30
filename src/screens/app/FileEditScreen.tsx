@@ -200,37 +200,53 @@ const FileEditScreen: React.FC = () => {
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <style>
-        html, body {
-          height: 100%;
-          width: 100%;
-          margin: 0;
-          padding: 0;
-          background-color: #ffffff;
-          color: #333333;
-          line-height: 1.6;
-          box-sizing: border-box;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
-        .editor {
-          min-height: calc(100vh - 0px);
-          width: 100%;
-          border: none;
-          outline: none;
-          font-size: 16px;
-          box-sizing: border-box;
-          padding: 8px;
-          overflow-x: auto;
-        }
-        .editor:focus {
-          outline: none;
-        }
-        /* Tablas: evitar salto de línea y permitir scroll horizontal cuando sea necesario */
-        .editor table {
-          width: max-content;
-          max-width: none;
-          border-collapse: collapse;
-          table-layout: auto;
-        }
+          html, body {
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            background-color: #ffffff;
+            color: #333333;
+            line-height: 1.6;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow-x: hidden; /* Evitar scroll horizontal global */
+          }
+          .editor {
+            min-height: 100vh;
+            width: 100% !important;
+            max-width: 100vw !important;
+            margin: 0 !important;
+            padding: 12px !important; /* Padding interno cómodo */
+            border: none;
+            outline: none;
+            box-sizing: border-box;
+          }
+          /* Forzar fluidez en contenedores de Word */
+          .editor > div, div[class*="WordSection"] {
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          /* Imágenes responsivas */
+          img {
+            max-width: 100% !important;
+            height: auto !important;
+          }
+          /* Tablas fluidas */
+          table {
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            border-collapse: collapse;
+          }
+          .editor:focus {
+            outline: none;
+          }
+          /* Estilos base para tablas para que no se rompan */
+          table {
+            border-collapse: collapse;
+          }
         .editor th, .editor td {
           white-space: nowrap;
           word-break: keep-all;
@@ -768,8 +784,11 @@ const FileEditScreen: React.FC = () => {
             const bodyHtml =
               contentData?.html || contentData?.content || "<p></p>";
             const combinedHtml = `<!DOCTYPE html><html><head>${styleCandidate}<style>
-              html,body{height:100%;width:100%;margin:0;padding:0;box-sizing:border-box}
-              .document-preview,.docx-content,.doc-content,.page,.container{max-width:100%!important;width:100%!important;margin:0!important;box-sizing:border-box}
+              html,body{width:100%;margin:0;padding:0;overflow-x:hidden}
+              .document-preview,.docx-content,.doc-content,.page,.container,.sheet,.paper,div[class*="WordSection"]{width:100%!important;max-width:100vw!important;margin:0!important;padding:12px!important;box-sizing:border-box}
+              @page{margin:0}
+              img{max-width:100%!important;height:auto!important}
+              table{width:100%!important;max-width:100%!important}
               body{background:#ffffff;color:#333}
               /* Reglas de tabla para evitar salto de líneas y permitir scroll horizontal */
               table{width:max-content;max-width:none;border-collapse:collapse;table-layout:auto}
