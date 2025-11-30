@@ -10,8 +10,9 @@ import {
   SafeAreaView,
   Dimensions,
   Modal,
+  BackHandler,
 } from "react-native";
-import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
+import { RouteProp, useRoute, useNavigation, useFocusEffect } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { Ionicons } from "@expo/vector-icons";
 import { WebView } from "react-native-webview";
@@ -62,10 +63,29 @@ const FileContentViewer: React.FC = () => {
   const [content, setContent] = useState<ContentData | null>(null);
   const [loading, setLoading] = useState(true);
   const [observationsVisible, setObservationsVisible] = useState(false);
+  const [changeTutorName, setChangeTutorName] = useState<string | null>(null);
 
   useEffect(() => {
     loadContent();
   }, [fileId, changeId]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+        navigation.goBack();
+        return true;
+      });
+
+      // Configurar el header
+      navigation.setOptions({
+        title: title || "Contenido",
+      });
+
+      return () => {
+        sub.remove();
+      };
+    }, [navigation, title])
+  );
 
   const loadContent = async () => {
     try {
@@ -90,6 +110,22 @@ const FileContentViewer: React.FC = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const fetchChangeDetails = async () => {
+      try {
+        const id = changeId || content?.file_change?.id?.toString();
+        if (!id) return;
+        const details = await filesService.getFileChangeDetails(String(id));
+        const userName =
+          details?.user?.name || details?.file_change?.user?.name || null;
+        setChangeTutorName(userName);
+      } catch {}
+    };
+    if (observationsVisible) {
+      fetchChangeDetails();
+    }
+  }, [observationsVisible, changeId, content]);
 
   const renderContent = () => {
     if (!content) return null;
@@ -120,7 +156,7 @@ const FileContentViewer: React.FC = () => {
               }}
               initialDataJson={normalized}
               readOnly={true}
-              style={{ flex: 1, minHeight: 500 }}
+              style={{ flex: 1 }}
             />
           </View>
         );
@@ -157,7 +193,7 @@ const FileContentViewer: React.FC = () => {
               }}
               initialDataJson={normalized}
               readOnly={true}
-              style={{ flex: 1, minHeight: 500 }}
+              style={{ flex: 1 }}
             />
           </View>
         );
@@ -174,7 +210,7 @@ const FileContentViewer: React.FC = () => {
             <ExcelEditor
               editorContent={{ content: base64, mime_type: mimeType }}
               readOnly={true}
-              style={{ flex: 1, minHeight: 500 }}
+              style={{ flex: 1 }}
             />
           </View>
         );
@@ -204,7 +240,7 @@ const FileContentViewer: React.FC = () => {
               }}
               initialDataJson={normalized}
               readOnly={true}
-              style={{ flex: 1, minHeight: 500 }}
+              style={{ flex: 1 }}
             />
           </View>
         );
@@ -275,59 +311,35 @@ const FileContentViewer: React.FC = () => {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>{title}</Text>
-          {version && (
-            <Text style={styles.versionBadge}>
-              v{versionLabel || formatVersionDisplay(version)}
-            </Text>
-          )}
-        </View>
+      <View style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Cargando contenido...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
-        </TouchableOpacity>
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            {title}
-          </Text>
-          {version && (
-            <Text style={styles.versionBadge}>
-              Versión {versionLabel || formatVersionDisplay(version)}
-            </Text>
-          )}
-        </View>
-        {content?.file_change ? (
+    <View style={styles.container}>
+      <View style={styles.contentWrapper}>{renderContent()}</View>
+
+      {content?.file_change ? (
+        <View style={styles.bottomButtonContainer}>
           <TouchableOpacity
             style={styles.observeButton}
             onPress={() => setObservationsVisible(true)}
           >
+            <Ionicons
+              name="chatbubbles-outline"
+              size={20}
+              color="#FFFFFF"
+              style={{ marginRight: 8 }}
+            />
             <Text style={styles.observeButtonText}>Ver observaciones</Text>
           </TouchableOpacity>
-        ) : null}
-      </View>
-
-      <View style={styles.contentWrapper}>{renderContent()}</View>
+        </View>
+      ) : null}
       <Modal
         visible={observationsVisible}
         transparent={true}
@@ -363,12 +375,9 @@ const FileContentViewer: React.FC = () => {
             </View>
             {content?.file_change && (
               <Text style={styles.modalSubtitle}>
-                {content.file_change.change_type || "Cambio"}
-                {content.file_change.created_at
-                  ? ` • ${new Date(
-                      content.file_change.created_at
-                    ).toLocaleString("es-ES")}`
-                  : ""}
+                {changeTutorName
+                  ? `Tutor: ${changeTutorName}`
+                  : "Observación del tutor"}
               </Text>
             )}
             <ScrollView
@@ -390,7 +399,7 @@ const FileContentViewer: React.FC = () => {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -404,49 +413,26 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background.primary,
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+  bottomButtonContainer: {
+    padding: spacing.md,
     backgroundColor: colors.background.secondary,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  backButton: {
-    padding: spacing.xs,
-    marginRight: spacing.sm,
-  },
-  headerContent: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.semibold,
-    color: colors.text.primary,
-  },
-  versionBadge: {
-    fontSize: typography.fontSize.sm,
-    color: colors.text.secondary,
-    marginTop: 2,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
   observeButton: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
     backgroundColor: colors.primary,
     borderRadius: 8,
-    marginLeft: spacing.sm,
     elevation: 2,
   },
   observeButtonText: {
-    fontSize: typography.fontSize.sm,
+    fontSize: typography.fontSize.base,
     color: "#FFFFFF",
-    fontWeight: typography.fontWeight.medium,
+    fontWeight: typography.fontWeight.semibold,
   },
   loadingContainer: {
     flex: 1,
@@ -460,8 +446,7 @@ const styles = StyleSheet.create({
   },
   contentWrapper: {
     flex: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
+    backgroundColor: colors.background.secondary,
   },
   editorScroll: {
     flex: 1,
@@ -498,11 +483,6 @@ const styles = StyleSheet.create({
   editorCard: {
     flex: 1,
     backgroundColor: colors.background.secondary,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: "hidden",
-    elevation: 2,
   },
   webView: {
     flex: 1,

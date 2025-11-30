@@ -100,12 +100,34 @@ const FileEditScreen: React.FC = () => {
 
   useFocusEffect(
     React.useCallback(() => {
+      const onBackPress = () => {
+        if (hasChanges) {
+          Alert.alert(
+            "Descartar cambios",
+            "Tienes cambios sin guardar. ¿Estás seguro de que quieres salir?",
+            [
+              { text: "Cancelar", style: "cancel", onPress: () => {} },
+              {
+                text: "Descartar",
+                style: "destructive",
+                onPress: () => navigation.goBack(),
+              },
+            ]
+          );
+          return true;
+        }
+        
+        navigation.goBack();
+        return true;
+      };
+
       const subscription = BackHandler.addEventListener(
         "hardwareBackPress",
-        () => true
+        onBackPress
       );
+
       return () => subscription.remove();
-    }, [])
+    }, [hasChanges, navigation])
   );
 
   // Gestión del teclado

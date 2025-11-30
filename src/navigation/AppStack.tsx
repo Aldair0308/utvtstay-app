@@ -83,7 +83,9 @@ const AppStack: React.FC = () => {
         name="FileContentViewer"
         component={FileContentViewer}
         options={{
-          headerShown: false, // La pantalla maneja su propio header
+          headerShown: true,
+          title: "Contenido",
+          gestureEnabled: false,
         }}
       />
 
