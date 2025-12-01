@@ -12,6 +12,7 @@ import {
   Modal,
   BackHandler,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { RouteProp, useRoute, useNavigation, useFocusEffect } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { Ionicons } from "@expo/vector-icons";
@@ -58,6 +59,7 @@ interface ContentData {
 const FileContentViewer: React.FC = () => {
   const route = useRoute<FileContentViewerRouteProp>();
   const navigation = useNavigation<FileContentViewerNavigationProp>();
+  const insets = useSafeAreaInsets();
   const { fileId, changeId, title, version, versionLabel } = route.params;
 
   const [content, setContent] = useState<ContentData | null>(null);
@@ -297,7 +299,7 @@ const FileContentViewer: React.FC = () => {
           <Ionicons
             name="document-outline"
             size={64}
-            color={colors.text.secondary}
+            color={colors.textSecondary}
           />
           <Text style={styles.nonTextTitle}>Archivo no compatible</Text>
           <Text style={styles.nonTextSubtitle}>
@@ -325,7 +327,12 @@ const FileContentViewer: React.FC = () => {
       <View style={styles.contentWrapper}>{renderContent()}</View>
 
       {content?.file_change ? (
-        <View style={styles.bottomButtonContainer}>
+        <View
+          style={[
+            styles.bottomButtonContainer,
+            { paddingBottom: insets.bottom + spacing.md },
+          ]}
+        >
           <TouchableOpacity
             style={styles.observeButton}
             onPress={() => setObservationsVisible(true)}
@@ -358,7 +365,7 @@ const FileContentViewer: React.FC = () => {
               <Ionicons
                 name="chatbubbles-outline"
                 size={20}
-                color={colors.text.primary}
+                color={colors.text}
                 style={styles.modalHeaderIcon}
               />
               <Text style={styles.modalTitle}>Observaciones del cambio</Text>
@@ -369,7 +376,7 @@ const FileContentViewer: React.FC = () => {
                 <Ionicons
                   name="close"
                   size={20}
-                  color={colors.text.secondary}
+                  color={colors.textSecondary}
                 />
               </TouchableOpacity>
             </View>
@@ -411,11 +418,11 @@ const formatVersionDisplay = (v?: number): string => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background.primary,
+    backgroundColor: colors.background,
   },
   bottomButtonContainer: {
     padding: spacing.md,
-    backgroundColor: colors.background.secondary,
+    backgroundColor: colors.backgroundSecondary,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
@@ -442,11 +449,11 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: spacing.md,
     fontSize: typography.fontSize.base,
-    color: colors.text.secondary,
+    color: colors.textSecondary,
   },
   contentWrapper: {
     flex: 1,
-    backgroundColor: colors.background.secondary,
+    backgroundColor: colors.backgroundSecondary,
   },
   editorScroll: {
     flex: 1,
@@ -457,7 +464,7 @@ const styles = StyleSheet.create({
   contentText: {
     fontSize: typography.fontSize.base,
     lineHeight: typography.fontSize.base * 1.5,
-    color: colors.text.primary,
+    color: colors.text,
     fontFamily: "monospace",
   },
   nonTextContainer: {
@@ -469,20 +476,20 @@ const styles = StyleSheet.create({
   nonTextTitle: {
     fontSize: typography.fontSize.lg,
     fontWeight: typography.fontWeight.semibold,
-    color: colors.text.primary,
+    color: colors.text,
     marginTop: spacing.md,
     textAlign: "center",
   },
   nonTextSubtitle: {
     fontSize: typography.fontSize.base,
-    color: colors.text.secondary,
+    color: colors.textSecondary,
     marginTop: spacing.sm,
     textAlign: "center",
     lineHeight: typography.fontSize.base * 1.4,
   },
   editorCard: {
     flex: 1,
-    backgroundColor: colors.background.secondary,
+    backgroundColor: colors.backgroundSecondary,
   },
   webView: {
     flex: 1,
@@ -496,7 +503,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: colors.background.primary,
+    backgroundColor: colors.background,
   },
   modalOverlay: {
     position: "absolute",
@@ -535,7 +542,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    backgroundColor: colors.background.secondary,
+    backgroundColor: colors.backgroundSecondary,
   },
   modalHeaderIcon: {
     marginRight: spacing.sm,
@@ -543,7 +550,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: typography.fontSize.lg,
     fontWeight: typography.fontWeight.semibold,
-    color: colors.text.primary,
+    color: colors.text,
     flex: 1,
   },
   modalCloseIconButton: {
@@ -553,7 +560,7 @@ const styles = StyleSheet.create({
   },
   modalSubtitle: {
     fontSize: typography.fontSize.sm,
-    color: colors.text.secondary,
+    color: colors.textSecondary,
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
   },
@@ -566,7 +573,7 @@ const styles = StyleSheet.create({
   },
   modalText: {
     fontSize: typography.fontSize.base,
-    color: colors.text.primary,
+    color: colors.text,
     lineHeight: typography.fontSize.base * 1.5,
   },
   modalActions: {
