@@ -79,7 +79,7 @@ const FileDetailScreen: React.FC = () => {
             <MaterialCommunityIcons
               name="arrow-left"
               size={24}
-              color={theme.colors.textSecondary}
+              color="#FFFFFF"
             />
           </TouchableOpacity>
         ),

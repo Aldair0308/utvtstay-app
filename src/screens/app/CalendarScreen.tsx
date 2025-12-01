@@ -8,6 +8,8 @@ import {
   ScrollView,
   Modal,
   TextInput,
+  StatusBar,
+  Dimensions,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
@@ -163,14 +165,15 @@ const CalendarScreen: React.FC = () => {
       openEventDetailModal(day.events[0]);
     } else {
       // Si hay múltiples eventos, mostrar lista para seleccionar
-      const eventButtons = day.events.map((event, index) => ({
+      const eventButtons: Array<{ text: string; onPress?: () => void; style?: 'default' | 'cancel' | 'destructive' }> = day.events.map((event) => ({
         text: event.title,
         onPress: () => openEventDetailModal(event),
       }));
 
-      eventButtons.push(
-        { text: "Cancelar", style: "cancel" as const }
-      );
+      eventButtons.push({
+        text: "Cancelar",
+        style: "cancel",
+      });
 
       Alert.alert(
         `Eventos - ${day.date.toLocaleDateString("es-ES", {
@@ -400,10 +403,19 @@ const CalendarScreen: React.FC = () => {
         visible={showEventDetailModal}
         animationType="fade"
         transparent={true}
+        statusBarTranslucent={true}
         onRequestClose={() => setShowEventDetailModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowEventDetailModal(false)}
+        >
+          <TouchableOpacity 
+            style={styles.modalContainer}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
             <View style={styles.modalHeader}>
               <TouchableOpacity onPress={() => setShowEventDetailModal(false)}>
                 <Text style={styles.modalCancelButton}>Cerrar</Text>
@@ -459,21 +471,11 @@ const CalendarScreen: React.FC = () => {
                   </View>
                 )}
 
-                {selectedEventDetail.created_by && (
-                  <View style={styles.eventDetailSection}>
-                    <Text style={styles.eventDetailSectionTitle}>
-                      Creado por
-                    </Text>
-                    <Text style={styles.eventDetailText}>
-                      {selectedEventDetail.created_by}
-                    </Text>
-                  </View>
-                )}
               </>
             )}
             </ScrollView>
-          </View>
-        </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
     </View>
   );
@@ -648,18 +650,22 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
   },
   modalOverlay: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: theme.spacing.screenPadding,
   },
   modalContainer: {
     backgroundColor: theme.colors.background,
     borderRadius: theme.dimensions.borderRadius.lg,
     maxHeight: '80%',
-    width: '100%',
+    width: '90%',
     maxWidth: 500,
+    marginHorizontal: theme.spacing.screenPadding,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -754,7 +760,7 @@ const styles = StyleSheet.create({
   },
   eventDetailText: {
     ...theme.typography.styles.body,
-    color: theme.colors.textPrimary,
+    color: theme.colors.text,
     lineHeight: 22,
     marginBottom: theme.spacing.xs,
   },
