@@ -22,6 +22,7 @@ import { calendarService } from "../../services/calendar";
 import { dashboardService } from "../../services/dashboard";
 import { theme } from "../../theme";
 import LoadingScreen from "../../components/common/LoadingScreen";
+import ProgressBar from "../../components/common/ProgressBar";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import CustomAlert from "../../components/common/CustomAlert";
 import { useProfileAlerts } from "../../components/common/ProfileAlerts";
@@ -40,16 +41,21 @@ const DashboardScreen: React.FC = () => {
   const { user, logout } = useAuth();
   const { alertState, hideAlert, handleLogout } = useProfileAlerts(logout);
   const { formatMediumDate } = useDateFormatter();
-  const { alertState: bulkAlertState, hideAlert: hideBulkAlert, showAlert: showBulkAlert } = useAlert();
+  const {
+    alertState: bulkAlertState,
+    hideAlert: hideBulkAlert,
+    showAlert: showBulkAlert,
+  } = useAlert();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [recentFiles, setRecentFiles] = useState<File[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<CalendarEvent[]>([]);
   const [stats, setStats] = useState({
     totalFiles: 0,
-    activeFiles: 0,
+    completedFiles: 0,
     upcomingEvents: 0,
   });
+  const [progressPercent, setProgressPercent] = useState<number>(0);
   const [menuVisible, setMenuVisible] = useState(false);
   const [hasUsedBulkCreation, setHasUsedBulkCreation] = useState<boolean>(true);
   const [creatingTemplates, setCreatingTemplates] = useState(false);
@@ -60,12 +66,15 @@ const DashboardScreen: React.FC = () => {
       try {
         const stored = await AsyncStorage.getItem(BULK_CREATION_KEY);
         if (stored !== null) {
-          const hasUsed = stored === 'true';
+          const hasUsed = stored === "true";
           setHasUsedBulkCreation(hasUsed);
-          console.log('[Dashboard] Bulk creation status from storage:', hasUsed);
+          console.log(
+            "[Dashboard] Bulk creation status from storage:",
+            hasUsed
+          );
         }
       } catch (error) {
-        console.error('[Dashboard] Error loading bulk creation status:', error);
+        console.error("[Dashboard] Error loading bulk creation status:", error);
       }
     };
 
@@ -76,14 +85,34 @@ const DashboardScreen: React.FC = () => {
     try {
       // Cargar estadísticas del dashboard incluyendo user_info
       const dashboardData = await dashboardService.getDashboardStats();
-      
+
       // Verificar si el usuario ha usado bulk creation desde el servidor
       const hasUsedFromServer = dashboardData.user_info?.has_used_bulk_creation ?? true;
-      
+
       // Guardar en AsyncStorage
       await AsyncStorage.setItem(BULK_CREATION_KEY, String(hasUsedFromServer));
       setHasUsedBulkCreation(hasUsedFromServer);
-      console.log('[Dashboard] Bulk creation status from server:', hasUsedFromServer);
+      console.log(
+        "[Dashboard] Bulk creation status from server:",
+        hasUsedFromServer
+      );
+
+      // Progreso global
+      const rawProgress = Number(
+        dashboardData?.stats?.progress?.progress_percent ?? 0
+      );
+      setProgressPercent(
+        isNaN(rawProgress)
+          ? 0
+          : Math.max(0, Math.min(100, Math.round(rawProgress)))
+      );
+
+      // Obtener agregados del dashboard
+      try {
+        const overview = await dashboardService.getDashboardOverview();
+        const completed = Number(overview?.dashboard?.completed_files ?? 0);
+        setStats(prev => ({ ...prev, completedFiles: isNaN(completed) ? 0 : completed }));
+      } catch {}
 
       // Solo cargar datos si el usuario ya usó bulk creation
       if (hasUsedFromServer) {
@@ -93,8 +122,6 @@ const DashboardScreen: React.FC = () => {
         setStats((prev) => ({
           ...prev,
           totalFiles: filesResponse.total,
-          activeFiles: filesResponse.files.filter((f) => f.status === "active")
-            .length,
         }));
 
         // Cargar eventos próximos
@@ -119,15 +146,16 @@ const DashboardScreen: React.FC = () => {
 
   const showBulkCreationAlert = () => {
     showBulkAlert({
-      type: 'success',
-      title: 'Acción Requerida',
-      message: 'Para comenzar a usar la aplicación, necesitas crear tus plantillas de archivos. Esta es una acción obligatoria para nuevos usuarios.',
+      type: "success",
+      title: "Acción Requerida",
+      message:
+        "Para comenzar a usar la aplicación, necesitas crear tus plantillas de archivos. Esta es una acción obligatoria para nuevos usuarios.",
       primaryButton: {
-        text: 'Crear Plantillas',
+        text: "Crear Plantillas",
         onPress: handleCreateTemplates,
       },
       secondaryButton: {
-        text: 'Cerrar Aplicación',
+        text: "Cerrar Aplicación",
         onPress: handleExitApp,
       },
     });
@@ -136,10 +164,10 @@ const DashboardScreen: React.FC = () => {
   const handleCreateTemplates = async () => {
     hideBulkAlert();
     setCreatingTemplates(true);
-    
+
     try {
       if (!user) {
-        throw new Error('Usuario no encontrado');
+        throw new Error("Usuario no encontrado");
       }
 
       await filesService.bulkCreateTemplates({
@@ -150,28 +178,29 @@ const DashboardScreen: React.FC = () => {
 
       // Actualizar estado local y AsyncStorage
       setHasUsedBulkCreation(true);
-      await AsyncStorage.setItem(BULK_CREATION_KEY, 'true');
-      console.log('[Dashboard] Bulk creation completed, status saved');
+      await AsyncStorage.setItem(BULK_CREATION_KEY, "true");
+      console.log("[Dashboard] Bulk creation completed, status saved");
 
       Alert.alert(
-        '¡Éxito!',
-        'Tus plantillas han sido creadas correctamente. Ya puedes comenzar a usar la aplicación.',
-        [{ text: 'OK', onPress: () => loadDashboardData() }]
+        "¡Éxito!",
+        "Tus plantillas han sido creadas correctamente. Ya puedes comenzar a usar la aplicación.",
+        [{ text: "OK", onPress: () => loadDashboardData() }]
       );
     } catch (error: any) {
-      console.error('Error creating templates:', error);
+      console.error("Error creating templates:", error);
       Alert.alert(
-        'Error',
-        error.message || 'No se pudieron crear las plantillas. Por favor, intenta de nuevo.',
+        "Error",
+        error.message ||
+          "No se pudieron crear las plantillas. Por favor, intenta de nuevo.",
         [
           {
-            text: 'Reintentar',
+            text: "Reintentar",
             onPress: handleCreateTemplates,
           },
           {
-            text: 'Cerrar Aplicación',
+            text: "Cerrar Aplicación",
             onPress: handleExitApp,
-            style: 'destructive',
+            style: "destructive",
           },
         ]
       );
@@ -432,7 +461,8 @@ const DashboardScreen: React.FC = () => {
             />
             <Text style={styles.blockedTitle}>Configuración Requerida</Text>
             <Text style={styles.blockedMessage}>
-              Necesitas crear tus plantillas de archivos para acceder al dashboard.
+              Necesitas crear tus plantillas de archivos para acceder al
+              dashboard.
             </Text>
           </View>
         ) : (
@@ -444,15 +474,19 @@ const DashboardScreen: React.FC = () => {
                 <Text style={styles.statLabel}>Archivos Totales</Text>
               </View>
               <View style={styles.statCard}>
-                <Text style={styles.statNumber}>{stats.activeFiles}</Text>
-                <Text style={styles.statLabel}>Archivos Activos</Text>
+                <Text style={styles.statNumber}>{stats.completedFiles}</Text>
+                <Text style={styles.statLabel}>Archivos Terminados</Text>
               </View>
               <View style={styles.statCard}>
                 <Text style={styles.statNumber}>{stats.upcomingEvents}</Text>
                 <Text style={styles.statLabel}>Eventos Próximos</Text>
               </View>
             </View>
-
+            {/* Progreso */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Progreso</Text>
+              <ProgressBar value={progressPercent} showLabel={true} />
+            </View>
             {/* Quick Actions */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Acciones Rápidas</Text>
@@ -536,7 +570,9 @@ const DashboardScreen: React.FC = () => {
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Próximos Eventos</Text>
-                <TouchableOpacity onPress={() => navigation.navigate("Calendar")}>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate("Calendar")}
+                >
                   <Text style={styles.seeAllText}>Ver calendario</Text>
                 </TouchableOpacity>
               </View>
@@ -545,12 +581,16 @@ const DashboardScreen: React.FC = () => {
                   <View key={event.id} style={styles.eventItem}>
                     <View style={styles.eventInfo}>
                       <Text style={styles.eventTitle}>{event.title}</Text>
-                      <Text style={styles.eventDate}>{formatEventDate(event)}</Text>
+                      <Text style={styles.eventDate}>
+                        {formatEventDate(event)}
+                      </Text>
                     </View>
                     <View
                       style={[
                         styles.eventType,
-                        { backgroundColor: event.color || getEventColor(event) },
+                        {
+                          backgroundColor: event.color || getEventColor(event),
+                        },
                       ]}
                     />
                   </View>
