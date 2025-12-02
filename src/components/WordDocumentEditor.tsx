@@ -62,10 +62,12 @@ const WordDocumentEditor = forwardRef<WordEditorHandle, Props>(
     function setupEditor() {
       editorInstance = CKEDITOR.replace('editor', {
         removePlugins: 'cloudservices,easyimage,notification',
-        allowedContent: true
+        allowedContent: true,
+        contentsCss: 'body { padding: 0 2px 300px 2px !important; margin: 0 !important; font-size: 11px !important; } * { font-size: 11px !important; line-height: 1.4 !important; } div[class*="WordSection"], p { margin-left: 0 !important; margin-right: 0 !important; padding-left: 0 !important; padding-right: 0 !important; width: 100% !important; }'
       });
       editorInstance.on('instanceReady', function(){
         try { 
+          editorInstance.document.getBody().setStyle('padding-bottom', '300px');
           var h = Math.max(window.innerHeight, 320);
           editorInstance.resize(null, h);
         } catch(e) {}
