@@ -214,11 +214,11 @@ const FileEditScreen: React.FC = () => {
             overflow-x: hidden; /* Evitar scroll horizontal global */
           }
           .editor {
-            min-height: 100vh;
+            min-height: 300px;
             width: 100% !important;
             max-width: 100vw !important;
             margin: 0 !important;
-            padding: 0 2px 300px 2px !important; /* Padding horizontal mínimo, inferior grande */
+            padding: 0 2px 20px 2px !important; /* Padding inferior reducido */
             border: none;
             outline: none;
             box-sizing: border-box;
@@ -273,19 +273,14 @@ const FileEditScreen: React.FC = () => {
             height: auto;
           }
           /* Espaciador final para asegurar scroll */
-          .editor::after {
-            content: "";
-            display: block;
-            height: 300px;
-          }
           body {
-            padding-bottom: 300px !important;
+            padding-bottom: 0 !important;
           }
       </style>
     </head>
     <body>
       <div class="editor" contenteditable="true" id="editor"></div>
-      <div style="height: 500px; width: 100%; clear: both;"></div>
+      <div style="height: 100px; width: 100%; clear: both;"></div>
       <script>
         const editor = document.getElementById('editor');
         let lastContent = '';
@@ -487,7 +482,7 @@ const FileEditScreen: React.FC = () => {
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Excel Editor</title>
       <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; background: #fff; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; background: #fff; padding-bottom: 300px; }
         .toolbar { display: flex; flex-wrap: wrap; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #e5e5e5; background: #f7f7f7; }
         .btn { font-size: 14px; color: #555; cursor: pointer; }
         .container { padding: 8px; }
@@ -511,6 +506,7 @@ const FileEditScreen: React.FC = () => {
       <div class="container">
         <div id="sheet"></div>
       </div>
+      <div style="height: 300px; width: 100%; clear: both;"></div>
       <script>
         function base64ToBinary(b64) {
           try {
@@ -811,13 +807,13 @@ const FileEditScreen: React.FC = () => {
               contentData?.html || contentData?.content || "<p></p>";
             const combinedHtml = `<!DOCTYPE html><html><head>${styleCandidate}<style>
               html,body{width:100%;margin:0;padding:0;overflow-x:hidden}
-              .document-preview,.docx-content,.doc-content,.page,.container,.sheet,.paper,div[class*="WordSection"]{width:100%!important;max-width:100vw!important;margin:0!important;padding:0 0 300px 0!important;box-sizing:border-box}
+              .document-preview,.docx-content,.doc-content,.page,.container,.sheet,.paper,div[class*="WordSection"]{width:100%!important;max-width:100vw!important;margin:0!important;padding:0!important;box-sizing:border-box}
               *{font-size:11px!important;line-height:1.4!important}
               div[class*="WordSection"],p{margin-left:0!important;margin-right:0!important;padding-left:0!important;padding-right:0!important;width:100%!important}
               @page{margin:0}
               img{max-width:100%!important;height:auto!important}
               table{width:100%!important;max-width:100%!important}
-              body{background:#ffffff;color:#333;padding-bottom:300px!important}
+              body{background:#ffffff;color:#333;padding-bottom:50px!important}
               /* Reglas de tabla para evitar salto de líneas y permitir scroll horizontal */
               table{width:max-content;max-width:none;border-collapse:collapse;table-layout:auto}
               th,td{white-space:nowrap;word-break:keep-all;vertical-align:top}

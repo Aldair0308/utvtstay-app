@@ -26,6 +26,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import CustomAlert from "../../components/common/CustomAlert";
 import { useProfileAlerts } from "../../components/common/ProfileAlerts";
 import useAlert from "../../hooks/useAlert";
+import { useDateFormatter } from "../../hooks/useDateFormatter";
 
 const BULK_CREATION_KEY = "has_used_bulk_creation";
 
@@ -38,6 +39,7 @@ const DashboardScreen: React.FC = () => {
   const navigation = useNavigation<DashboardNavigationProp>();
   const { user, logout } = useAuth();
   const { alertState, hideAlert, handleLogout } = useProfileAlerts(logout);
+  const { formatMediumDate } = useDateFormatter();
   const { alertState: bulkAlertState, hideAlert: hideBulkAlert, showAlert: showBulkAlert } = useAlert();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -509,7 +511,7 @@ const DashboardScreen: React.FC = () => {
                     <View style={styles.fileInfo}>
                       <Text style={styles.fileName}>{file.name}</Text>
                       <Text style={styles.fileDate}>
-                        {new Date(file.updatedAt).toLocaleDateString()}
+                        {formatMediumDate(new Date(file.updatedAt))}
                       </Text>
                     </View>
                     <View

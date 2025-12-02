@@ -580,7 +580,7 @@ const styles = StyleSheet.create({
   hScroll: { flex: 1 },
   hScrollContent: { flexGrow: 1 },
   vScroll: { flex: 1 },
-  vScrollContent: { flexGrow: 1 },
+  vScrollContent: { flexGrow: 1, paddingBottom: 180 },
   table: { borderWidth: 1, borderColor: "#ddd", flexGrow: 1 },
   row: { flexDirection: "row" },
   headerRow: { backgroundColor: "#f7f7f7" },
