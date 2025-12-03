@@ -20,12 +20,14 @@ import LoadingScreen from "../../components/common/LoadingScreen";
 import CustomAlert from "../../components/common/CustomAlert";
 import useAlert from "../../hooks/useAlert";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDateFormatter } from "../../hooks/useDateFormatter";
 
 type FilesNavigationProp = StackNavigationProp<AppStackParamList, "Files">;
 
 const FilesScreen: React.FC = () => {
   const navigation = useNavigation<FilesNavigationProp>();
+  const insets = useSafeAreaInsets();
   const { formatMediumDate } = useDateFormatter();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -314,7 +316,10 @@ const FilesScreen: React.FC = () => {
         data={filteredFiles}
         renderItem={renderFileItem}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContainer}
+        contentContainerStyle={[
+          styles.listContainer,
+          { paddingBottom: insets.bottom + theme.spacing.xs },
+        ]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
@@ -334,7 +339,12 @@ const FilesScreen: React.FC = () => {
 
       {/* Results Count */}
       {filteredFiles.length > 0 && (
-        <View style={styles.resultsContainer}>
+        <View
+          style={[
+            styles.resultsContainer,
+            { paddingBottom: Math.max(insets.bottom, theme.spacing.xs) },
+          ]}
+        >
           <Text style={styles.resultsText}>
             {filteredFiles.length} archivo
             {filteredFiles.length !== 1 ? "s" : ""}

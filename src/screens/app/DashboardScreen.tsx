@@ -21,6 +21,7 @@ import { filesService } from "../../services/files";
 import { calendarService } from "../../services/calendar";
 import { dashboardService } from "../../services/dashboard";
 import { theme } from "../../theme";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import LoadingScreen from "../../components/common/LoadingScreen";
 import ProgressBar from "../../components/common/ProgressBar";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -38,6 +39,7 @@ type DashboardNavigationProp = StackNavigationProp<
 
 const DashboardScreen: React.FC = () => {
   const navigation = useNavigation<DashboardNavigationProp>();
+  const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
   const { alertState, hideAlert, handleLogout } = useProfileAlerts(logout);
   const { formatMediumDate } = useDateFormatter();
@@ -87,7 +89,8 @@ const DashboardScreen: React.FC = () => {
       const dashboardData = await dashboardService.getDashboardStats();
 
       // Verificar si el usuario ha usado bulk creation desde el servidor
-      const hasUsedFromServer = dashboardData.user_info?.has_used_bulk_creation ?? true;
+      const hasUsedFromServer =
+        dashboardData.user_info?.has_used_bulk_creation ?? true;
 
       // Guardar en AsyncStorage
       await AsyncStorage.setItem(BULK_CREATION_KEY, String(hasUsedFromServer));
@@ -111,7 +114,10 @@ const DashboardScreen: React.FC = () => {
       try {
         const overview = await dashboardService.getDashboardOverview();
         const completed = Number(overview?.dashboard?.completed_files ?? 0);
-        setStats(prev => ({ ...prev, completedFiles: isNaN(completed) ? 0 : completed }));
+        setStats((prev) => ({
+          ...prev,
+          completedFiles: isNaN(completed) ? 0 : completed,
+        }));
       } catch {}
 
       // Solo cargar datos si el usuario ya usó bulk creation
@@ -394,6 +400,9 @@ const DashboardScreen: React.FC = () => {
     <>
       <ScrollView
         style={styles.container}
+        contentContainerStyle={{
+          paddingBottom: insets.bottom + theme.spacing.xs,
+        }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
