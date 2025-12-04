@@ -10,18 +10,27 @@ import {
   Image,
   ImageSourcePropType,
   Pressable,
+  BackHandler,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { AppStackParamList, File, CalendarEvent } from "../../interfaces";
 import { useAuth } from "../../context/AuthContext";
 import { filesService } from "../../services/files";
 import { calendarService } from "../../services/calendar";
+import { dashboardService } from "../../services/dashboard";
 import { theme } from "../../theme";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import LoadingScreen from "../../components/common/LoadingScreen";
+import ProgressBar from "../../components/common/ProgressBar";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import CustomAlert from "../../components/common/CustomAlert";
 import { useProfileAlerts } from "../../components/common/ProfileAlerts";
+import useAlert from "../../hooks/useAlert";
+import { useDateFormatter } from "../../hooks/useDateFormatter";
+
+const BULK_CREATION_KEY = "has_used_bulk_creation";
 
 type DashboardNavigationProp = StackNavigationProp<
   AppStackParamList,
@@ -30,38 +39,108 @@ type DashboardNavigationProp = StackNavigationProp<
 
 const DashboardScreen: React.FC = () => {
   const navigation = useNavigation<DashboardNavigationProp>();
+  const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
   const { alertState, hideAlert, handleLogout } = useProfileAlerts(logout);
+  const { formatMediumDate } = useDateFormatter();
+  const {
+    alertState: bulkAlertState,
+    hideAlert: hideBulkAlert,
+    showAlert: showBulkAlert,
+  } = useAlert();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [recentFiles, setRecentFiles] = useState<File[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<CalendarEvent[]>([]);
   const [stats, setStats] = useState({
     totalFiles: 0,
-    activeFiles: 0,
+    completedFiles: 0,
     upcomingEvents: 0,
   });
+  const [progressPercent, setProgressPercent] = useState<number>(0);
   const [menuVisible, setMenuVisible] = useState(false);
+  const [hasUsedBulkCreation, setHasUsedBulkCreation] = useState<boolean>(true);
+  const [creatingTemplates, setCreatingTemplates] = useState(false);
+
+  // Cargar el estado de bulk creation desde AsyncStorage al iniciar
+  useEffect(() => {
+    const loadBulkCreationStatus = async () => {
+      try {
+        const stored = await AsyncStorage.getItem(BULK_CREATION_KEY);
+        if (stored !== null) {
+          const hasUsed = stored === "true";
+          setHasUsedBulkCreation(hasUsed);
+          console.log(
+            "[Dashboard] Bulk creation status from storage:",
+            hasUsed
+          );
+        }
+      } catch (error) {
+        console.error("[Dashboard] Error loading bulk creation status:", error);
+      }
+    };
+
+    loadBulkCreationStatus();
+  }, []);
 
   const loadDashboardData = async () => {
     try {
-      // Cargar archivos recientes
-      const filesResponse = await filesService.getFiles({ limit: 5 });
-      setRecentFiles(filesResponse.files);
-      setStats((prev) => ({
-        ...prev,
-        totalFiles: filesResponse.total,
-        activeFiles: filesResponse.files.filter((f) => f.status === "active")
-          .length,
-      }));
+      // Cargar estadísticas del dashboard incluyendo user_info
+      const dashboardData = await dashboardService.getDashboardStats();
 
-      // Cargar eventos próximos
-      const upcomingEvents = await calendarService.getUpcomingEvents(5);
-      setUpcomingEvents(upcomingEvents);
-      setStats((prev) => ({
-        ...prev,
-        upcomingEvents: upcomingEvents.length,
-      }));
+      // Verificar si el usuario ha usado bulk creation desde el servidor
+      const hasUsedFromServer =
+        dashboardData.user_info?.has_used_bulk_creation ?? true;
+
+      // Guardar en AsyncStorage
+      await AsyncStorage.setItem(BULK_CREATION_KEY, String(hasUsedFromServer));
+      setHasUsedBulkCreation(hasUsedFromServer);
+      console.log(
+        "[Dashboard] Bulk creation status from server:",
+        hasUsedFromServer
+      );
+
+      // Progreso global
+      const rawProgress = Number(
+        dashboardData?.stats?.progress?.progress_percent ?? 0
+      );
+      setProgressPercent(
+        isNaN(rawProgress)
+          ? 0
+          : Math.max(0, Math.min(100, Math.round(rawProgress)))
+      );
+
+      // Obtener agregados del dashboard
+      try {
+        const overview = await dashboardService.getDashboardOverview();
+        const completed = Number(overview?.dashboard?.completed_files ?? 0);
+        setStats((prev) => ({
+          ...prev,
+          completedFiles: isNaN(completed) ? 0 : completed,
+        }));
+      } catch {}
+
+      // Solo cargar datos si el usuario ya usó bulk creation
+      if (hasUsedFromServer) {
+        // Cargar archivos recientes
+        const filesResponse = await filesService.getFiles(1, 5);
+        setRecentFiles(filesResponse.files);
+        setStats((prev) => ({
+          ...prev,
+          totalFiles: filesResponse.total,
+        }));
+
+        // Cargar eventos próximos
+        const upcomingEvents = await calendarService.getUpcomingEvents(5);
+        setUpcomingEvents(upcomingEvents);
+        setStats((prev) => ({
+          ...prev,
+          upcomingEvents: upcomingEvents.length,
+        }));
+      } else {
+        // Mostrar alerta si no ha usado bulk creation
+        showBulkCreationAlert();
+      }
     } catch (error) {
       console.error("Error loading dashboard data:", error);
       Alert.alert("Error", "No se pudieron cargar los datos del dashboard");
@@ -69,6 +148,76 @@ const DashboardScreen: React.FC = () => {
       setLoading(false);
       setRefreshing(false);
     }
+  };
+
+  const showBulkCreationAlert = () => {
+    showBulkAlert({
+      type: "success",
+      title: "Acción Requerida",
+      message:
+        "Para comenzar a usar la aplicación, necesitas crear tus plantillas de archivos. Esta es una acción obligatoria para nuevos usuarios.",
+      primaryButton: {
+        text: "Crear Plantillas",
+        onPress: handleCreateTemplates,
+      },
+      secondaryButton: {
+        text: "Cerrar Aplicación",
+        onPress: handleExitApp,
+      },
+    });
+  };
+
+  const handleCreateTemplates = async () => {
+    hideBulkAlert();
+    setCreatingTemplates(true);
+
+    try {
+      if (!user) {
+        throw new Error("Usuario no encontrado");
+      }
+
+      await filesService.bulkCreateTemplates({
+        user_id: user.id,
+        title_prefix: user.name,
+        bulk_description: user.name,
+      });
+
+      // Actualizar estado local y AsyncStorage
+      setHasUsedBulkCreation(true);
+      await AsyncStorage.setItem(BULK_CREATION_KEY, "true");
+      console.log("[Dashboard] Bulk creation completed, status saved");
+
+      Alert.alert(
+        "¡Éxito!",
+        "Tus plantillas han sido creadas correctamente. Ya puedes comenzar a usar la aplicación.",
+        [{ text: "OK", onPress: () => loadDashboardData() }]
+      );
+    } catch (error: any) {
+      console.error("Error creating templates:", error);
+      Alert.alert(
+        "Error",
+        error.message ||
+          "No se pudieron crear las plantillas. Por favor, intenta de nuevo.",
+        [
+          {
+            text: "Reintentar",
+            onPress: handleCreateTemplates,
+          },
+          {
+            text: "Cerrar Aplicación",
+            onPress: handleExitApp,
+            style: "destructive",
+          },
+        ]
+      );
+    } finally {
+      setCreatingTemplates(false);
+    }
+  };
+
+  const handleExitApp = () => {
+    hideBulkAlert();
+    BackHandler.exitApp();
   };
 
   useEffect(() => {
@@ -251,6 +400,9 @@ const DashboardScreen: React.FC = () => {
     <>
       <ScrollView
         style={styles.container}
+        contentContainerStyle={{
+          paddingBottom: insets.bottom + theme.spacing.xs,
+        }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
@@ -308,128 +460,156 @@ const DashboardScreen: React.FC = () => {
           </View>
         )}
 
-        {/* Stats Cards */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{stats.totalFiles}</Text>
-            <Text style={styles.statLabel}>Archivos Totales</Text>
+        {/* Contenido bloqueado si no ha usado bulk creation */}
+        {!hasUsedBulkCreation ? (
+          <View style={styles.blockedContent}>
+            <MaterialCommunityIcons
+              name="lock-outline"
+              size={80}
+              color={theme.colors.textSecondary}
+            />
+            <Text style={styles.blockedTitle}>Configuración Requerida</Text>
+            <Text style={styles.blockedMessage}>
+              Necesitas crear tus plantillas de archivos para acceder al
+              dashboard.
+            </Text>
           </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{stats.activeFiles}</Text>
-            <Text style={styles.statLabel}>Archivos Activos</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{stats.upcomingEvents}</Text>
-            <Text style={styles.statLabel}>Eventos Próximos</Text>
-          </View>
-        </View>
-
-        {/* Quick Actions */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Acciones Rápidas</Text>
-          <View style={styles.actionsContainer}>
-            <TouchableOpacity
-              style={styles.actionCard}
-              onPress={() => navigation.navigate("Files")}
-            >
-              <Text style={styles.actionTitle}>📁 Mis Archivos</Text>
-              <Text style={styles.actionDescription}>
-                Ver y gestionar tus archivos
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.actionCard}
-              onPress={() => navigation.navigate("Calendar")}
-            >
-              <Text style={styles.actionTitle}>📅 Calendario</Text>
-              <Text style={styles.actionDescription}>
-                Ver eventos y fechas importantes
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Recent Files */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Archivos Recientes</Text>
-            <TouchableOpacity onPress={() => navigation.navigate("Files")}>
-              <Text style={styles.seeAllText}>Ver todos</Text>
-            </TouchableOpacity>
-          </View>
-          {recentFiles.length > 0 ? (
-            recentFiles.map((file) => (
-              <TouchableOpacity
-                key={file.id}
-                style={styles.fileItem}
-                onPress={() =>
-                  navigation.navigate("FileDetail", { fileId: file.id })
-                }
-              >
-                {(() => {
-                  const icon = getFileIconInfo(file);
-                  return (
-                    <View style={styles.fileIcon}>
-                      <FileTypeIcon
-                        imageSource={icon.imageSource}
-                        iconName={icon.name as any}
-                        color={icon.color}
-                      />
-                    </View>
-                  );
-                })()}
-                <View style={styles.fileInfo}>
-                  <Text style={styles.fileName}>{file.name}</Text>
-                  <Text style={styles.fileDate}>
-                    {new Date(file.updatedAt).toLocaleDateString()}
-                  </Text>
-                </View>
-                <View
-                  style={[
-                    styles.fileStatus,
-                    {
-                      backgroundColor:
-                        file.status === "active"
-                          ? theme.colors.success
-                          : theme.colors.textTertiary,
-                    },
-                  ]}
-                />
-              </TouchableOpacity>
-            ))
-          ) : (
-            <Text style={styles.emptyText}>No hay archivos recientes</Text>
-          )}
-        </View>
-
-        {/* Upcoming Events */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Próximos Eventos</Text>
-            <TouchableOpacity onPress={() => navigation.navigate("Calendar")}>
-              <Text style={styles.seeAllText}>Ver calendario</Text>
-            </TouchableOpacity>
-          </View>
-          {upcomingEvents.length > 0 ? (
-            upcomingEvents.map((event) => (
-              <View key={event.id} style={styles.eventItem}>
-                <View style={styles.eventInfo}>
-                  <Text style={styles.eventTitle}>{event.title}</Text>
-                  <Text style={styles.eventDate}>{formatEventDate(event)}</Text>
-                </View>
-                <View
-                  style={[
-                    styles.eventType,
-                    { backgroundColor: event.color || getEventColor(event) },
-                  ]}
-                />
+        ) : (
+          <>
+            {/* Stats Cards */}
+            <View style={styles.statsContainer}>
+              <View style={styles.statCard}>
+                <Text style={styles.statNumber}>{stats.totalFiles}</Text>
+                <Text style={styles.statLabel}>Archivos Totales</Text>
               </View>
-            ))
-          ) : (
-            <Text style={styles.emptyText}>No hay eventos próximos</Text>
-          )}
-        </View>
+              <View style={styles.statCard}>
+                <Text style={styles.statNumber}>{stats.completedFiles}</Text>
+                <Text style={styles.statLabel}>Archivos Terminados</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Text style={styles.statNumber}>{stats.upcomingEvents}</Text>
+                <Text style={styles.statLabel}>Eventos Próximos</Text>
+              </View>
+            </View>
+            {/* Progreso */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Progreso</Text>
+              <ProgressBar value={progressPercent} showLabel={true} />
+            </View>
+            {/* Quick Actions */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Acciones Rápidas</Text>
+              <View style={styles.actionsContainer}>
+                <TouchableOpacity
+                  style={styles.actionCard}
+                  onPress={() => navigation.navigate("Files")}
+                >
+                  <Text style={styles.actionTitle}>📁 Mis Archivos</Text>
+                  <Text style={styles.actionDescription}>
+                    Ver y gestionar tus archivos
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.actionCard}
+                  onPress={() => navigation.navigate("Calendar")}
+                >
+                  <Text style={styles.actionTitle}>📅 Calendario</Text>
+                  <Text style={styles.actionDescription}>
+                    Ver eventos y fechas importantes
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Recent Files */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Archivos Recientes</Text>
+                <TouchableOpacity onPress={() => navigation.navigate("Files")}>
+                  <Text style={styles.seeAllText}>Ver todos</Text>
+                </TouchableOpacity>
+              </View>
+              {recentFiles.length > 0 ? (
+                recentFiles.map((file) => (
+                  <TouchableOpacity
+                    key={file.id}
+                    style={styles.fileItem}
+                    onPress={() =>
+                      navigation.navigate("FileDetail", { fileId: file.id })
+                    }
+                  >
+                    {(() => {
+                      const icon = getFileIconInfo(file);
+                      return (
+                        <View style={styles.fileIcon}>
+                          <FileTypeIcon
+                            imageSource={icon.imageSource}
+                            iconName={icon.name as any}
+                            color={icon.color}
+                          />
+                        </View>
+                      );
+                    })()}
+                    <View style={styles.fileInfo}>
+                      <Text style={styles.fileName}>{file.name}</Text>
+                      <Text style={styles.fileDate}>
+                        {formatMediumDate(new Date(file.updatedAt))}
+                      </Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.fileStatus,
+                        {
+                          backgroundColor:
+                            file.status === "active"
+                              ? theme.colors.success
+                              : theme.colors.textTertiary,
+                        },
+                      ]}
+                    />
+                  </TouchableOpacity>
+                ))
+              ) : (
+                <Text style={styles.emptyText}>No hay archivos recientes</Text>
+              )}
+            </View>
+
+            {/* Upcoming Events */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Próximos Eventos</Text>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate("Calendar")}
+                >
+                  <Text style={styles.seeAllText}>Ver calendario</Text>
+                </TouchableOpacity>
+              </View>
+              {upcomingEvents.length > 0 ? (
+                upcomingEvents.map((event) => (
+                  <View key={event.id} style={styles.eventItem}>
+                    <View style={styles.eventInfo}>
+                      <Text style={styles.eventTitle}>{event.title}</Text>
+                      <Text style={styles.eventDate}>
+                        {formatEventDate(event)}
+                      </Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.eventType,
+                        {
+                          backgroundColor: event.color || getEventColor(event),
+                        },
+                      ]}
+                    />
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.emptyText}>No hay eventos próximos</Text>
+              )}
+            </View>
+          </>
+        )}
       </ScrollView>
       <CustomAlert
         visible={alertState.visible}
@@ -439,6 +619,15 @@ const DashboardScreen: React.FC = () => {
         onClose={hideAlert}
         primaryButton={alertState.primaryButton}
         secondaryButton={alertState.secondaryButton}
+      />
+      <CustomAlert
+        visible={bulkAlertState.visible}
+        title={bulkAlertState.title}
+        message={bulkAlertState.message}
+        type={bulkAlertState.type}
+        onClose={hideBulkAlert}
+        primaryButton={bulkAlertState.primaryButton}
+        secondaryButton={bulkAlertState.secondaryButton}
       />
     </>
   );
@@ -647,6 +836,26 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     textAlign: "center",
     fontStyle: "italic",
+  },
+  blockedContent: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: theme.spacing.xl,
+    marginTop: theme.spacing.xl * 2,
+  },
+  blockedTitle: {
+    ...theme.typography.styles.h3,
+    color: theme.colors.text,
+    marginTop: theme.spacing.lg,
+    marginBottom: theme.spacing.sm,
+    textAlign: "center",
+  },
+  blockedMessage: {
+    ...theme.typography.styles.body,
+    color: theme.colors.textSecondary,
+    textAlign: "center",
+    lineHeight: 24,
   },
 });
 

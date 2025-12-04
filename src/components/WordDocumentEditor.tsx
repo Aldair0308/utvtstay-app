@@ -58,13 +58,16 @@ const WordDocumentEditor = forwardRef<WordEditorHandle, Props>(
   <textarea id="editor"></textarea>
   <script>
     var editorInstance = null;
+    var isLoadingContent = false;
     function setupEditor() {
       editorInstance = CKEDITOR.replace('editor', {
         removePlugins: 'cloudservices,easyimage,notification',
-        allowedContent: true
+        allowedContent: true,
+        contentsCss: 'body { padding: 0 2px 50px 2px !important; margin: 0 !important; font-size: 11px !important; } * { font-size: 11px !important; line-height: 1.4 !important; } div[class*="WordSection"], p { margin-left: 0 !important; margin-right: 0 !important; padding-left: 0 !important; padding-right: 0 !important; width: 100% !important; }'
       });
       editorInstance.on('instanceReady', function(){
         try { 
+          editorInstance.document.getBody().setStyle('padding-bottom', '50px');
           var h = Math.max(window.innerHeight, 320);
           editorInstance.resize(null, h);
         } catch(e) {}
@@ -78,6 +81,8 @@ const WordDocumentEditor = forwardRef<WordEditorHandle, Props>(
       });
       var debounce;
       editorInstance.on('change', function(){
+        if (isLoadingContent) return;
+        try { if (!editorInstance.checkDirty()) return; } catch(e) {}
         clearTimeout(debounce);
         debounce = setTimeout(function(){
           var html = editorInstance.getData();
@@ -87,7 +92,13 @@ const WordDocumentEditor = forwardRef<WordEditorHandle, Props>(
     }
     function loadContent(content, format) {
       if (!editorInstance) return;
-      try { editorInstance.setData(content || '<p></p>'); } catch(e) {}
+      try {
+        isLoadingContent = true;
+        editorInstance.setData(content || '<p></p>', function(){
+          try { editorInstance.resetDirty(); } catch(e) {}
+          isLoadingContent = false;
+        });
+      } catch(e) { isLoadingContent = false; }
     }
     function getContent() {
       try { return editorInstance ? editorInstance.getData() : ''; } catch(e) { return ''; }

@@ -14,6 +14,7 @@ import {
   Keyboard,
   Platform,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 import ExcelEditor, {
   ExcelEditorHandle,
@@ -69,6 +70,7 @@ interface EditorContent {
 const FileEditScreen: React.FC = () => {
   const navigation = useNavigation<FileEditNavigationProp>();
   const route = useRoute<FileEditRouteProp>();
+  const insets = useSafeAreaInsets();
   const { fileId, initialContent } = route.params;
 
   const [editorData, setEditorData] = useState<EditorContent | null>(null);
@@ -100,12 +102,34 @@ const FileEditScreen: React.FC = () => {
 
   useFocusEffect(
     React.useCallback(() => {
+      const onBackPress = () => {
+        if (hasChanges) {
+          Alert.alert(
+            "Descartar cambios",
+            "Tienes cambios sin guardar. ¿Estás seguro de que quieres salir?",
+            [
+              { text: "Cancelar", style: "cancel", onPress: () => {} },
+              {
+                text: "Descartar",
+                style: "destructive",
+                onPress: () => navigation.goBack(),
+              },
+            ]
+          );
+          return true;
+        }
+        
+        navigation.goBack();
+        return true;
+      };
+
       const subscription = BackHandler.addEventListener(
         "hardwareBackPress",
-        () => true
+        onBackPress
       );
+
       return () => subscription.remove();
-    }, [])
+    }, [hasChanges, navigation])
   );
 
   // Gestión del teclado
@@ -178,50 +202,85 @@ const FileEditScreen: React.FC = () => {
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <style>
-        html, body {
-          height: 100%;
-          width: 100%;
-          margin: 0;
-          padding: 0;
-          background-color: #ffffff;
-          color: #333333;
-          line-height: 1.6;
-          box-sizing: border-box;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
-        .editor {
-          min-height: calc(100vh - 0px);
-          width: 100%;
-          border: none;
-          outline: none;
-          font-size: 16px;
-          box-sizing: border-box;
-          padding: 8px;
-          overflow-x: auto;
-        }
-        .editor:focus {
-          outline: none;
-        }
-        /* Tablas: evitar salto de línea y permitir scroll horizontal cuando sea necesario */
-        .editor table {
-          width: max-content;
-          max-width: none;
-          border-collapse: collapse;
-          table-layout: auto;
-        }
+          html, body {
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            background-color: #ffffff;
+            color: #333333;
+            line-height: 1.6;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow-x: hidden; /* Evitar scroll horizontal global */
+          }
+          .editor {
+            min-height: 300px;
+            width: 100% !important;
+            max-width: 100vw !important;
+            margin: 0 !important;
+            padding: 0 2px 20px 2px !important; /* Padding inferior reducido */
+            border: none;
+            outline: none;
+            box-sizing: border-box;
+            font-size: 11px !important; /* Texto más pequeño */
+          }
+          /* Forzar texto pequeño y sin márgenes en elementos internos */
+          .editor *, body * {
+            font-size: 11px !important;
+            line-height: 1.4 !important;
+          }
+          div[class*="WordSection"], p, div {
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+          }
+          /* Forzar fluidez en contenedores de Word */
+          .editor > div, div[class*="WordSection"] {
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          /* Imágenes responsivas */
+          img {
+            max-width: 100% !important;
+            height: auto !important;
+          }
+          /* Tablas fluidas */
+          table {
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            border-collapse: collapse;
+          }
+          .editor:focus {
+            outline: none;
+          }
+          /* Estilos base para tablas para que no se rompan */
+          table {
+            border-collapse: collapse;
+          }
         .editor th, .editor td {
           white-space: nowrap;
           word-break: keep-all;
           vertical-align: top;
         }
-        .editor img {
-          max-width: 100%;
-          height: auto;
-        }
+          .editor img {
+            max-width: 100%;
+            height: auto;
+          }
+          /* Espaciador final para asegurar scroll */
+          body {
+            padding-bottom: 0 !important;
+          }
       </style>
     </head>
     <body>
       <div class="editor" contenteditable="true" id="editor"></div>
+      <div style="height: 100px; width: 100%; clear: both;"></div>
       <script>
         const editor = document.getElementById('editor');
         let lastContent = '';
@@ -423,7 +482,7 @@ const FileEditScreen: React.FC = () => {
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Excel Editor</title>
       <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; background: #fff; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; background: #fff; padding-bottom: 300px; }
         .toolbar { display: flex; flex-wrap: wrap; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #e5e5e5; background: #f7f7f7; }
         .btn { font-size: 14px; color: #555; cursor: pointer; }
         .container { padding: 8px; }
@@ -447,6 +506,7 @@ const FileEditScreen: React.FC = () => {
       <div class="container">
         <div id="sheet"></div>
       </div>
+      <div style="height: 300px; width: 100%; clear: both;"></div>
       <script>
         function base64ToBinary(b64) {
           try {
@@ -746,9 +806,14 @@ const FileEditScreen: React.FC = () => {
             const bodyHtml =
               contentData?.html || contentData?.content || "<p></p>";
             const combinedHtml = `<!DOCTYPE html><html><head>${styleCandidate}<style>
-              html,body{height:100%;width:100%;margin:0;padding:0;box-sizing:border-box}
-              .document-preview,.docx-content,.doc-content,.page,.container{max-width:100%!important;width:100%!important;margin:0!important;box-sizing:border-box}
-              body{background:#ffffff;color:#333}
+              html,body{width:100%;margin:0;padding:0;overflow-x:hidden}
+              .document-preview,.docx-content,.doc-content,.page,.container,.sheet,.paper,div[class*="WordSection"]{width:100%!important;max-width:100vw!important;margin:0!important;padding:0!important;box-sizing:border-box}
+              *{font-size:11px!important;line-height:1.4!important}
+              div[class*="WordSection"],p{margin-left:0!important;margin-right:0!important;padding-left:0!important;padding-right:0!important;width:100%!important}
+              @page{margin:0}
+              img{max-width:100%!important;height:auto!important}
+              table{width:100%!important;max-width:100%!important}
+              body{background:#ffffff;color:#333;padding-bottom:50px!important}
               /* Reglas de tabla para evitar salto de líneas y permitir scroll horizontal */
               table{width:max-content;max-width:none;border-collapse:collapse;table-layout:auto}
               th,td{white-space:nowrap;word-break:keep-all;vertical-align:top}
@@ -1626,7 +1691,12 @@ const FileEditScreen: React.FC = () => {
         </View>
       )}
       {/* Action Buttons */}
-      <View style={styles.actionButtons}>
+      <View
+        style={[
+          styles.actionButtons,
+          { paddingBottom: insets.bottom + theme.spacing.sm },
+        ]}
+      >
         <TouchableOpacity style={styles.discardButton} onPress={handleDiscard}>
           <Text style={styles.discardButtonText}>Descartar</Text>
         </TouchableOpacity>

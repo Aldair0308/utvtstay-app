@@ -9,6 +9,7 @@ import {
   RefreshControl,
   BackHandler,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   useNavigation,
   useRoute,
@@ -42,6 +43,7 @@ const FileHistoryScreen: React.FC = () => {
   const navigation = useNavigation<FileHistoryNavigationProp>();
   const route = useRoute<FileHistoryRouteProp>();
   const { fileId } = route.params;
+  const insets = useSafeAreaInsets();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -278,7 +280,10 @@ const FileHistoryScreen: React.FC = () => {
         data={history}
         renderItem={renderHistoryItem}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContainer}
+        contentContainerStyle={[
+          styles.listContainer,
+          { paddingBottom: insets.bottom + theme.spacing.xs },
+        ]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

@@ -48,7 +48,7 @@ export const filesService = {
             content: file.content || "",
             description: file.description || file.tutor_observations || "",
             version: file.version || 1,
-            status: isCompleted ? "completed" : (file.status || "pending"),
+            status: isCompleted ? "completed" : file.status || "pending",
             createdAt:
               file.created_at || file.createdAt || new Date().toISOString(),
             updatedAt:
@@ -61,7 +61,8 @@ export const filesService = {
               "application/octet-stream",
             fileType: file.file_type || file.fileType || "unknown",
             size: file.size || 0,
-            tutorObservations: file.tutor_observations || file.tutorObservations,
+            tutorObservations:
+              file.tutor_observations || file.tutorObservations,
             completed: isCompleted,
           };
         });
@@ -109,10 +110,9 @@ export const filesService = {
           content: file.content || "",
           description: file.description || file.tutor_observations || "",
           version: file.version || 1,
-          currentVersion:
-            file.current_version ?? file.version ?? 1,
+          currentVersion: file.current_version ?? file.version ?? 1,
           totalVersions: file.total_versions ?? undefined,
-          status: isCompleted ? "completed" : (file.status || "pending"),
+          status: isCompleted ? "completed" : file.status || "pending",
           createdAt:
             file.created_at || file.createdAt || new Date().toISOString(),
           updatedAt:
@@ -164,7 +164,7 @@ export const filesService = {
           content: file.content || "",
           description: file.description || file.tutor_observations || "",
           version: file.version || 1,
-          status: isCompleted ? "completed" : (file.status || "pending"),
+          status: isCompleted ? "completed" : file.status || "pending",
           createdAt:
             file.created_at || file.createdAt || new Date().toISOString(),
           updatedAt:
@@ -214,7 +214,7 @@ export const filesService = {
           content: file.content || "",
           description: file.description || file.tutor_observations || "",
           version: file.version || 1,
-          status: isCompleted ? "completed" : (file.status || "pending"),
+          status: isCompleted ? "completed" : file.status || "pending",
           createdAt:
             file.created_at || file.createdAt || new Date().toISOString(),
           updatedAt:
@@ -298,7 +298,7 @@ export const filesService = {
           content: file.content || "",
           description: file.description || file.tutor_observations || "",
           version: file.version || 1,
-          status: isCompleted ? "completed" : (file.status || "pending"),
+          status: isCompleted ? "completed" : file.status || "pending",
           createdAt:
             file.created_at || file.createdAt || new Date().toISOString(),
           updatedAt:
@@ -349,7 +349,7 @@ export const filesService = {
           content: file.content || "",
           description: file.description || file.tutor_observations || "",
           version: file.version || 1,
-          status: isCompleted ? "completed" : (file.status || "pending"),
+          status: isCompleted ? "completed" : file.status || "pending",
           createdAt:
             file.created_at || file.createdAt || new Date().toISOString(),
           updatedAt:
@@ -404,20 +404,20 @@ export const filesService = {
       const url = versionId
         ? `/files/${fileId}/editor-content?version_id=${versionId}`
         : `/files/${fileId}/editor-content`;
-  
+
       console.log(`[FilesService] Getting editor content for file ${fileId}`, {
         url,
         versionId,
       });
-  
+
       const response = await apiClient.get<ApiResponse<any>>(url);
-  
+
       console.log(`[FilesService] Editor content response:`, {
         success: response.data.success,
         hasData: !!response.data.data,
         status: response.status,
       });
-  
+
       if (response.data.success && response.data.data) {
         // Adjuntar cuerpo crudo para depuración en pantallas que lo requieran
         try {
@@ -427,13 +427,15 @@ export const filesService = {
           return response.data.data;
         }
       }
-  
+
       throw new Error("Error al obtener contenido del editor");
     } catch (error: any) {
       const isNonWordEditorContent =
         error?.response?.status === 500 &&
-        String(error?.response?.data?.message || "").toLowerCase().includes("not a word document");
-  
+        String(error?.response?.data?.message || "")
+          .toLowerCase()
+          .includes("not a word document");
+
       if (isNonWordEditorContent) {
         // Devolver un objeto controlado indicando que es Excel para que FileEditScreen active su ruta Excel sin errores
         return {
@@ -458,7 +460,7 @@ export const filesService = {
           last_modified: new Date().toISOString(),
         };
       }
-  
+
       console.error(
         `[FilesService] Error en getEditorContent para archivo ${fileId}:`,
         {
@@ -468,13 +470,13 @@ export const filesService = {
           url: error.config?.url,
         }
       );
-  
+
       if (error.response?.status === 403) {
         throw new Error(
           "No tienes permisos para editar este archivo. Verifica que tengas los permisos necesarios o contacta al administrador."
         );
       }
-  
+
       throw new Error(handleApiError(error));
     }
   },
@@ -591,7 +593,9 @@ export const filesService = {
   /**
    * Obtener contenido de un archivo
    */
-  getFileContent: async (fileId: string): Promise<{ content: string; mimeType: string; html?: string }> => {
+  getFileContent: async (
+    fileId: string
+  ): Promise<{ content: string; mimeType: string; html?: string }> => {
     try {
       const response = await apiClient.get<
         ApiResponse<{ content: string; mime_type: string; html?: string }>
@@ -618,16 +622,16 @@ export const filesService = {
    * Actualizar contenido de un archivo con tipo MIME específico
    */
   updateFileContentWithMime: async (
-    fileId: string, 
-    content: string, 
-    mimeType: string = 'text/plain'
+    fileId: string,
+    content: string,
+    mimeType: string = "text/plain"
   ): Promise<File> => {
     try {
       const response = await apiClient.post<ApiResponse<File>>(
         `/files/${fileId}/content`,
         {
           content,
-          mime_type: mimeType
+          mime_type: mimeType,
         }
       );
 
@@ -646,7 +650,7 @@ export const filesService = {
           content: file.content || "",
           description: file.description || file.tutor_observations || "",
           version: file.version || 1,
-          status: isCompleted ? "completed" : (file.status || "pending"),
+          status: isCompleted ? "completed" : file.status || "pending",
           createdAt:
             file.created_at || file.createdAt || new Date().toISOString(),
           updatedAt:
@@ -766,6 +770,38 @@ export const filesService = {
           "No tienes permisos para registrar cambios en este archivo."
         );
       }
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  /**
+   * Crear plantillas en masa para el usuario
+   */
+  bulkCreateTemplates: async (payload: {
+    user_id: number;
+    title_prefix: string;
+    bulk_description: string;
+  }): Promise<any> => {
+    try {
+      const response = await apiClient.post<ApiResponse<any>>(
+        `/files/bulk-template-creator`,
+        payload
+      );
+
+      if (response.data.success) {
+        return response.data.data;
+      }
+
+      throw new Error(
+        response.data.message || "Error al crear plantillas en masa"
+      );
+    } catch (error: any) {
+      console.error("Error en bulkCreateTemplates:", {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        url: error.config?.url,
+      });
       throw new Error(handleApiError(error));
     }
   },

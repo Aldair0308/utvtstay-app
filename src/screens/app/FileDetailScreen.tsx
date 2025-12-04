@@ -10,6 +10,7 @@ import {
   Image,
   BackHandler,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   useNavigation,
   useRoute,
@@ -34,6 +35,7 @@ type FileDetailRouteProp = RouteProp<AppStackParamList, "FileDetail">;
 const FileDetailScreen: React.FC = () => {
   const navigation = useNavigation<FileDetailNavigationProp>();
   const route = useRoute<FileDetailRouteProp>();
+  const insets = useSafeAreaInsets();
   const {
     fileId,
     isCompleted: isCompletedParam,
@@ -79,7 +81,7 @@ const FileDetailScreen: React.FC = () => {
             <MaterialCommunityIcons
               name="arrow-left"
               size={24}
-              color={theme.colors.textSecondary}
+              color="#FFFFFF"
             />
           </TouchableOpacity>
         ),
@@ -259,7 +261,12 @@ const FileDetailScreen: React.FC = () => {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{
+        paddingBottom: insets.bottom + theme.spacing.xs,
+      }}
+    >
       {/* File Header */}
       <View style={styles.header}>
         <View style={styles.fileIconContainer}>
